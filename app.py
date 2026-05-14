@@ -207,9 +207,14 @@ HTML_TEMPLATE = """
                     </button>
                 </div>
             </div>
-            <button onclick="closePresentation()" class="p-2 hover:bg-slate-100 rounded-full text-slate-400 transition-colors">
-                <svg class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
-            </button>
+            <div class="flex items-center gap-1">
+                <button id="pres-edit-btn" class="p-2 hover:bg-slate-100 rounded-full text-slate-400 hover:text-amber-500 transition-colors" title="Edit project">
+                    <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                </button>
+                <button onclick="closePresentation()" class="p-2 hover:bg-slate-100 rounded-full text-slate-400 transition-colors" title="Close">
+                    <svg class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                </button>
+            </div>
         </header>
         <main class="flex-1 overflow-y-auto p-12"><div id="presentation-content" class="presentation-card markdown-content"></div></main>
     </div>
@@ -273,6 +278,7 @@ HTML_TEMPLATE = """
             const body = proj.content.split('---').slice(-1)[0].trim();
             document.getElementById('pres-title').innerText = proj.title;
             document.getElementById('presentation-content').innerHTML = marked.parse(body);
+            document.getElementById('pres-edit-btn').onclick = () => { closePresentation(); openModal(id); };
             document.getElementById('presentation-modal').classList.remove('hidden');
             presentationFontSize = 18; updateFontSizeDisplay();
         }
