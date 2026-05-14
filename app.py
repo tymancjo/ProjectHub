@@ -64,6 +64,11 @@ HTML_TEMPLATE = """
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/4.3.0/marked.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.0/Sortable.min.js"></script>
+    <link  rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.17/codemirror.min.css">
+    <link  rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.17/theme/dracula.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.17/codemirror.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.17/keymap/vim.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.17/mode/markdown/markdown.min.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
 
@@ -82,7 +87,12 @@ HTML_TEMPLATE = """
         #board .markdown-content { font-size: 0.875rem; }
 
         .sortable-ghost { opacity: 0.4; border: 2px dashed #f7b705; }
-        #modal-textarea { font-family: 'JetBrains Mono', monospace; line-height: 1.6; background-color: #0f172a; color: #f1f5f9; caret-color: #f7b705; }
+
+        /* CodeMirror editor */
+        #cm-wrapper { flex: 1; overflow: hidden; min-height: 0; }
+        .CodeMirror { height: 100% !important; font-family: 'JetBrains Mono', monospace !important; font-size: 0.875rem; line-height: 1.6; }
+        .CodeMirror-scroll { padding: 1.5rem 2rem; box-sizing: border-box; }
+        .CodeMirror-cursor { border-left-color: #f7b705 !important; }
 
         .filter-pill { display: inline-flex; align-items: center; height: 28px; padding: 0 12px; border-radius: 9999px; font-size: 0.75rem; font-weight: 600; border: 1px solid #e2e8f0; background-color: #ffffff; color: #64748b; transition: all 0.2s ease; cursor: pointer; gap: 6px; white-space: nowrap; }
         .filter-pill:hover { border-color: #f7b705; color: #d4991a; }
@@ -179,15 +189,19 @@ HTML_TEMPLATE = """
                 <div><h3 class="text-lg font-bold">Edit Project</h3><p class="text-xs text-slate-400">Markdown · <code>#tags</code> · <code>TODO: [ ] task</code> · <code>#cat:name</code></p></div>
                 <div class="flex items-center gap-2">
                     <button onclick="insertDateAtCursor()" class="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 rounded-lg text-xs font-bold border">📅 Date</button>
+                    <button id="vim-toggle" onclick="toggleVimMode()" class="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 rounded-lg text-xs font-bold border" title="Toggle Vim mode">VIM</button>
                     <button onclick="closeModal()" class="p-2 hover:bg-slate-100 rounded-full text-slate-400">
                         <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
                     </button>
                 </div>
             </div>
-            <textarea id="modal-textarea" class="flex-1 p-8 outline-none resize-none"></textarea>
-            <div class="p-4 border-t bg-slate-50 flex justify-end gap-3">
-                <button onclick="closeModal()" class="px-4 py-2 font-semibold text-slate-600">Cancel</button>
-                <button onclick="saveProjectUpdate()" class="px-8 py-2 btn-accent font-bold rounded-lg shadow-md">Save Changes</button>
+            <div id="cm-wrapper"></div>
+            <div class="px-4 py-2 border-t bg-slate-50 flex justify-between items-center gap-3">
+                <span id="vim-mode-indicator" class="text-[10px] font-mono font-black px-2 py-1 rounded bg-slate-200 text-slate-500" style="display:none">NORMAL</span>
+                <div class="flex gap-3 ml-auto">
+                    <button onclick="closeModal()" class="px-4 py-2 font-semibold text-slate-600">Cancel</button>
+                    <button onclick="saveProjectUpdate()" class="px-8 py-2 btn-accent font-bold rounded-lg shadow-md">Save Changes</button>
+                </div>
             </div>
         </div>
     </div>
@@ -226,6 +240,8 @@ HTML_TEMPLATE = """
         let activeFilterTags = new Set();
         let presentationFontSize = 18;
         let timelineMode = 'list';
+        let cmEditor = null;
+        let vimEnabled = localStorage.getItem('vimMode') === 'true';
 
         const COLORS = ['#f7b705','#10b981','#e11d48','#3b82f6','#8b5cf6','#ec4899','#14b8a6','#f97316','#06b6d4','#64748b'];
 
@@ -268,10 +284,56 @@ HTML_TEMPLATE = """
 
         function openModal(id) {
             currentEditingId = id;
-            document.getElementById('modal-textarea').value = projects.find(p => p.id === id).content;
+            const content = projects.find(p => p.id === id).content;
             document.getElementById('editor-modal').classList.remove('hidden');
+
+            const wrapper = document.getElementById('cm-wrapper');
+            wrapper.innerHTML = '';
+            cmEditor = CodeMirror(wrapper, {
+                value: content,
+                mode: 'markdown',
+                theme: 'dracula',
+                lineWrapping: true,
+                keyMap: vimEnabled ? 'vim' : 'default',
+                autofocus: true,
+                extraKeys: { Tab: false },
+            });
+            cmEditor.setSize('100%', '100%');
+            cmEditor.on('vim-mode-change', info => updateVimIndicator(info.mode));
+            updateVimToggle();
+            updateVimIndicator(vimEnabled ? 'normal' : 'insert');
         }
-        function closeModal() { document.getElementById('editor-modal').classList.add('hidden'); currentEditingId = null; }
+
+        function closeModal() {
+            document.getElementById('editor-modal').classList.add('hidden');
+            cmEditor = null;
+            currentEditingId = null;
+        }
+
+        function toggleVimMode() {
+            vimEnabled = !vimEnabled;
+            localStorage.setItem('vimMode', vimEnabled);
+            if (cmEditor) cmEditor.setOption('keyMap', vimEnabled ? 'vim' : 'default');
+            updateVimToggle();
+            updateVimIndicator(vimEnabled ? 'normal' : 'insert');
+        }
+
+        function updateVimToggle() {
+            const btn = document.getElementById('vim-toggle');
+            btn.className = vimEnabled
+                ? 'px-3 py-1.5 rounded-lg text-xs font-bold border btn-accent'
+                : 'px-3 py-1.5 bg-slate-100 hover:bg-slate-200 rounded-lg text-xs font-bold border text-slate-500';
+            btn.title = vimEnabled ? 'Vim ON — click to disable' : 'Vim OFF — click to enable';
+        }
+
+        function updateVimIndicator(mode) {
+            const el = document.getElementById('vim-mode-indicator');
+            el.style.display = vimEnabled ? 'inline-block' : 'none';
+            if (!vimEnabled) return;
+            el.textContent = mode.toUpperCase();
+            const cls = { insert: 'bg-amber-100 text-amber-700', normal: 'bg-slate-200 text-slate-600', visual: 'bg-purple-100 text-purple-700', replace: 'bg-red-100 text-red-600' };
+            el.className = `text-[10px] font-mono font-black px-2 py-1 rounded ${cls[mode] || cls.normal}`;
+        }
 
         function openPresentation(id) {
             const proj = projects.find(p => p.id === id);
@@ -294,17 +356,15 @@ HTML_TEMPLATE = """
         }
 
         function insertDateAtCursor() {
-            const ta = document.getElementById('modal-textarea');
+            if (!cmEditor) return;
             const ds = `**${new Date().toLocaleDateString('en-GB').replace(/\\//g, '-')}**`;
-            const s = ta.selectionStart;
-            ta.value = ta.value.substring(0, s) + ds + ta.value.substring(ta.selectionEnd);
-            ta.selectionStart = ta.selectionEnd = s + ds.length;
-            ta.focus();
+            cmEditor.replaceRange(ds, cmEditor.getCursor());
+            cmEditor.focus();
         }
 
         async function saveProjectUpdate() {
             const idx = projects.findIndex(p => p.id === currentEditingId);
-            if (idx !== -1) projects[idx].content = document.getElementById('modal-textarea').value;
+            if (idx !== -1 && cmEditor) projects[idx].content = cmEditor.getValue();
             await fetch('/api/save-order', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(projects.map(p => p.content)) });
             closeModal();
             loadProjects();
