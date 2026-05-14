@@ -12,6 +12,9 @@ wheels/
 # macOS
 .DS_Store
 
+# Local config — keep your DB_PATH private
+.env
+
 # Uncomment the line below once you start using this with real data,
 # so your personal notes are never accidentally committed.
 # db/projects.md

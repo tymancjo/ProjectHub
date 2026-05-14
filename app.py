@@ -1,10 +1,13 @@
 import os
 import re
 from flask import Flask, request, jsonify, render_template_string
+from dotenv import load_dotenv
+
+load_dotenv()
 
 app = Flask(__name__)
-DB_DIR = "db"
-DB_FILE = os.path.join(DB_DIR, "projects.md")
+DB_FILE = os.getenv("DB_PATH", os.path.join("db", "projects.md"))
+DB_DIR  = os.path.dirname(os.path.abspath(DB_FILE))
 
 if not os.path.exists(DB_DIR):
     os.makedirs(DB_DIR)
