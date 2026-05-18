@@ -186,7 +186,7 @@ HTML_TEMPLATE = """
     <div id="editor-modal" class="fixed inset-0 bg-slate-900/80 backdrop-blur-md z-50 hidden flex items-center justify-center p-4">
         <div class="bg-white rounded-2xl shadow-2xl w-full max-w-4xl flex flex-col h-[85vh] overflow-hidden">
             <div class="px-6 py-4 border-b flex justify-between items-center bg-white">
-                <div><h3 class="text-lg font-bold">Edit Project</h3><p class="text-xs text-slate-400">Markdown · <code>#tags</code> · <code>TODO: [ ] task</code> · <code>#cat:name</code></p></div>
+                <div><h3 class="text-lg font-bold">Edit Project</h3><p class="text-xs text-slate-400">Markdown · <code>#tags</code> · <code>TODO: [ ] task</code> · <code>TODO: [ ] **dd-mm-yyyy** = milestone</code> · <code>#cat:name</code></p></div>
                 <div class="flex items-center gap-2">
                     <button onclick="insertDateAtCursor()" class="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 rounded-lg text-xs font-bold border">📅 Date</button>
                     <button id="vim-toggle" onclick="toggleVimMode()" class="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 rounded-lg text-xs font-bold border" title="Toggle Vim mode">VIM</button>
@@ -442,12 +442,19 @@ HTML_TEMPLATE = """
             const events = [];
             projects.forEach((proj, pi) => {
                 const color = COLORS[pi % COLORS.length];
-                proj.content.split('\\n').forEach(line => {
+                proj.content.split('\\n').forEach((line, lineIndex) => {
                     [...line.matchAll(/\\*\\*(\\d{2}-\\d{2}-\\d{4})\\*\\*/g)].forEach(m => {
                         const [dd, mm, yyyy] = m[1].split('-');
                         const date = new Date(+yyyy, +mm - 1, +dd);
-                        const ctx  = line.replace(/\\*\\*\\d{2}-\\d{2}-\\d{4}\\*\\*/g, '').replace(/[*#>`_]/g, '').trim();
-                        events.push({ date, dateStr: m[1], context: ctx || proj.title, projectId: proj.id, projectTitle: proj.title, color });
+                        const todoMatch = line.match(/TODO:\\s*\\[([ x])\\]/i);
+                        const isMilestone = !!todoMatch;
+                        const milestoneDone = isMilestone && todoMatch[1].toLowerCase() === 'x';
+                        const ctx = line
+                            .replace(/TODO:\\s*\\[[ x]\\]\\s*/gi, '')
+                            .replace(/\\*\\*\\d{2}-\\d{2}-\\d{4}\\*\\*/g, '')
+                            .replace(/[*#>`_]/g, '')
+                            .trim();
+                        events.push({ date, dateStr: m[1], context: ctx || proj.title, projectId: proj.id, projectTitle: proj.title, color, lineIndex, isMilestone, milestoneDone });
                     });
                 });
             });
@@ -496,15 +503,24 @@ HTML_TEMPLATE = """
                     const isPast  = e.date < today;
                     const isToday = e.date.toDateString() === today.toDateString();
                     const isLast  = idx === month.events.length - 1;
-                    html += `<div class="flex gap-4 ${isPast && !isToday ? 'opacity-50' : ''}">
+                    const shouldFade = isPast && !isToday && !e.isMilestone;
+                    const msColor = e.milestoneDone ? '#10b981' : '#f7b705';
+                    const dotHtml = e.isMilestone
+                        ? `<div style="width:11px;height:11px;transform:rotate(45deg);background:${msColor};flex-shrink:0;margin-top:3px;border-radius:2px"></div>`
+                        : `<div class="tl-dot" style="background:${e.color}"></div>`;
+                    const msTag = e.isMilestone
+                        ? `<button onclick="toggleTodo('${e.projectId}',${e.lineIndex})" class="text-[9px] font-black px-1.5 py-0.5 rounded tracking-wide transition-colors" style="${e.milestoneDone ? 'background:#d1fae5;color:#059669' : 'background:#fef9e7;color:#d4991a'}">${e.milestoneDone ? '✓ Done' : '◆ Milestone'}</button>`
+                        : '';
+                    html += `<div class="flex gap-4 ${shouldFade ? 'opacity-50' : ''}">
                         <div class="flex flex-col items-center w-4">
-                            <div class="tl-dot" style="background:${e.color}"></div>
+                            ${dotHtml}
                             ${!isLast ? '<div class="tl-line"></div>' : ''}
                         </div>
                         <div class="pb-4 flex-1 min-w-0">
                             <div class="flex items-center gap-2 flex-wrap mb-0.5">
                                 <span class="text-xs font-mono font-bold" style="${isToday ? 'color:#d4991a' : 'color:#94a3b8'}">${e.dateStr}</span>
                                 ${isToday ? '<span class="text-[9px] font-black px-1.5 py-0.5 rounded tracking-wide" style="background:#fef9e7;color:#d4991a">TODAY</span>' : ''}
+                                ${msTag}
                                 <button onclick="openPresentation('${e.projectId}')" class="text-[10px] font-bold px-2 py-0.5 rounded-full text-white hover:opacity-80 transition-opacity" style="background:${e.color}">${e.projectTitle}</button>
                             </div>
                             ${e.context ? `<p class="text-sm text-slate-600 truncate">${e.context}</p>` : ''}
@@ -579,11 +595,15 @@ HTML_TEMPLATE = """
                 let pins = '';
                 evs.forEach(e => {
                     const topPx  = 14 + e.level * 46;
-                    const dotClr = e.isPast && !e.isToday ? '#cbd5e1' : e.color;
-                    const txtClr = e.isPast && !e.isToday ? '#94a3b8' : e.color;
+                    const msClr  = e.milestoneDone ? '#10b981' : '#f7b705';
+                    const dotClr = e.isMilestone ? msClr : (e.isPast && !e.isToday ? '#cbd5e1' : e.color);
+                    const txtClr = e.isMilestone ? msClr : (e.isPast && !e.isToday ? '#94a3b8' : e.color);
                     const short  = e.context.length > 18 ? e.context.substring(0,18)+'…' : e.context;
+                    const dotEl  = e.isMilestone
+                        ? `<button onclick="openPresentation('${e.projectId}')" style="width:12px;height:12px;transform:rotate(45deg);background:${dotClr};border:2px solid white;box-shadow:0 1px 3px rgba(0,0,0,0.2);border-radius:2px;cursor:pointer" class="hover:scale-125 transition-transform" title="${e.context} (${e.dateStr})"></button>`
+                        : `<button onclick="openPresentation('${e.projectId}')" class="w-3 h-3 rounded-full border-2 border-white shadow-sm hover:scale-125 transition-transform" style="background:${dotClr}" title="${e.context} (${e.dateStr})"></button>`;
                     pins += `<div class="absolute flex flex-col items-center" style="left:${e.pct}%;top:${topPx}px;transform:translateX(-50%);z-index:1">
-                        <button onclick="openPresentation('${e.projectId}')" class="w-3 h-3 rounded-full border-2 border-white shadow-sm hover:scale-125 transition-transform" style="background:${dotClr}" title="${e.context} (${e.dateStr})"></button>
+                        ${dotEl}
                         <div class="mt-0.5 text-[9px] font-semibold leading-tight text-center" style="color:${txtClr};max-width:72px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis">${short}</div>
                         <div class="text-[8px] text-slate-300 font-mono leading-none">${e.dateStr.substring(0,5)}</div>
                     </div>`;

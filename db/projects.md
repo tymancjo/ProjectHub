@@ -22,7 +22,7 @@ TODO: [x] Design system tokens
 TODO: [ ] Implement component library
 TODO: [ ] SEO audit and fixes
 TODO: [ ] Accessibility review (WCAG 2.1 AA)
-TODO: [ ] Production launch
+TODO: [ ] **30-06-2026** Production launch
 
 ## Project: ML Pipeline Refactor
 **Short Desc:** Rebuild the training and inference pipeline for scale.
@@ -46,7 +46,8 @@ TODO: [x] Migrate preprocessing module
 TODO: [x] Parallelize training jobs
 TODO: [ ] Migrate evaluation module
 TODO: [ ] Load test inference service
-TODO: [ ] Rollout to production (canary)
+TODO: [x] **10-04-2026** Training pipeline v2 live
+TODO: [ ] **15-07-2026** Rollout to production (canary)
 
 ## Project: Mobile App v2
 **Short Desc:** Major update to the iOS and Android apps.
@@ -97,7 +98,8 @@ TODO: [x] Migrate domain: Inventory
 TODO: [ ] Migrate domain: HR
 TODO: [ ] Migrate domain: Logistics
 TODO: [ ] Decommission legacy system
-TODO: [ ] Final validation and sign-off
+TODO: [ ] **30-06-2026** Final validation and sign-off
+TODO: [ ] **31-08-2026** Legacy system decommission
 
 ## Project: Security Audit Q1
 **Short Desc:** Annual penetration test and vulnerability remediation.
