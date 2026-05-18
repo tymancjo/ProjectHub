@@ -240,6 +240,7 @@ HTML_TEMPLATE = """
         let activeFilterTags = new Set();
         let presentationFontSize = 18;
         let timelineMode = 'list';
+        let timelineFilter = 'all';
         let cmEditor = null;
         let vimEnabled = localStorage.getItem('vimMode') === 'true';
 
@@ -462,6 +463,7 @@ HTML_TEMPLATE = """
         }
 
         function setTimelineMode(mode) { timelineMode = mode; renderTimeline(); }
+        function setTimelineFilter(f) { timelineFilter = f; renderTimeline(); }
 
         function renderTimeline() {
             if (timelineMode === 'grid') renderTimelineGrid();
@@ -469,12 +471,14 @@ HTML_TEMPLATE = """
         }
 
         function renderTimelineList() {
-            const events = parseDates();
+            const allEvents = parseDates();
+            const events = timelineFilter === 'milestones' ? allEvents.filter(e => e.isMilestone) : allEvents;
             const today  = new Date(); today.setHours(0,0,0,0);
 
             if (!events.length) {
-                document.getElementById('timeline-view').innerHTML =
-                    '<p class="text-slate-400 text-center mt-16 text-sm">No dates found. Use <strong>**dd-mm-yyyy**</strong> in notes, or click 📅 in the editor.</p>';
+                document.getElementById('timeline-view').innerHTML = timelineFilter === 'milestones'
+                    ? '<p class="text-slate-400 text-center mt-16 text-sm">No milestones found. Use <code class="bg-slate-100 px-1.5 py-0.5 rounded">TODO: [ ] **dd-mm-yyyy** milestone name</code> in any project.</p>'
+                    : '<p class="text-slate-400 text-center mt-16 text-sm">No dates found. Use <strong>**dd-mm-yyyy**</strong> in notes, or click 📅 in the editor.</p>';
                 return;
             }
 
@@ -491,9 +495,15 @@ HTML_TEMPLATE = """
                         <h2 class="text-2xl font-black text-slate-900">Timeline</h2>
                         <p class="text-sm text-slate-400 mt-0.5">${events.length} event${events.length!==1?'s':''} across ${projects.length} project${projects.length!==1?'s':''}</p>
                     </div>
-                    <div class="flex bg-slate-100 p-1 rounded-lg gap-0.5">
-                        <button class="px-3 py-1.5 text-xs font-bold rounded-md nav-tab-active">List</button>
-                        <button onclick="setTimelineMode('grid')" class="px-3 py-1.5 text-xs font-bold rounded-md text-slate-500 hover:text-slate-800">Grid</button>
+                    <div class="flex items-center gap-2">
+                        <div class="flex bg-slate-100 p-1 rounded-lg gap-0.5">
+                            <button onclick="setTimelineFilter('all')" class="px-3 py-1.5 text-xs font-bold rounded-md ${timelineFilter==='all'?'nav-tab-active':'text-slate-500 hover:text-slate-800'}">All</button>
+                            <button onclick="setTimelineFilter('milestones')" class="px-3 py-1.5 text-xs font-bold rounded-md ${timelineFilter==='milestones'?'nav-tab-active':'text-slate-500 hover:text-slate-800'}">◆ Milestones</button>
+                        </div>
+                        <div class="flex bg-slate-100 p-1 rounded-lg gap-0.5">
+                            <button class="px-3 py-1.5 text-xs font-bold rounded-md nav-tab-active">List</button>
+                            <button onclick="setTimelineMode('grid')" class="px-3 py-1.5 text-xs font-bold rounded-md text-slate-500 hover:text-slate-800">Grid</button>
+                        </div>
                     </div>
                 </div>`;
 
@@ -534,12 +544,14 @@ HTML_TEMPLATE = """
         }
 
         function renderTimelineGrid() {
-            const events = parseDates();
+            const allEvents = parseDates();
+            const events = timelineFilter === 'milestones' ? allEvents.filter(e => e.isMilestone) : allEvents;
             const today  = new Date(); today.setHours(0,0,0,0);
 
             if (!events.length) {
-                document.getElementById('timeline-view').innerHTML =
-                    '<p class="text-slate-400 text-center mt-16 text-sm">No dates found. Use <strong>**dd-mm-yyyy**</strong> in notes, or click 📅 in the editor.</p>';
+                document.getElementById('timeline-view').innerHTML = timelineFilter === 'milestones'
+                    ? '<p class="text-slate-400 text-center mt-16 text-sm">No milestones found. Use <code class="bg-slate-100 px-1.5 py-0.5 rounded">TODO: [ ] **dd-mm-yyyy** milestone name</code> in any project.</p>'
+                    : '<p class="text-slate-400 text-center mt-16 text-sm">No dates found. Use <strong>**dd-mm-yyyy**</strong> in notes, or click 📅 in the editor.</p>';
                 return;
             }
 
@@ -558,9 +570,15 @@ HTML_TEMPLATE = """
                     <h2 class="text-2xl font-black text-slate-900">Timeline</h2>
                     <p class="text-sm text-slate-400 mt-0.5">${events.length} event${events.length!==1?'s':''} across ${projects.length} project${projects.length!==1?'s':''}</p>
                 </div>
-                <div class="flex bg-slate-100 p-1 rounded-lg gap-0.5">
-                    <button onclick="setTimelineMode('list')" class="px-3 py-1.5 text-xs font-bold rounded-md text-slate-500 hover:text-slate-800">List</button>
-                    <button class="px-3 py-1.5 text-xs font-bold rounded-md nav-tab-active">Grid</button>
+                <div class="flex items-center gap-2">
+                    <div class="flex bg-slate-100 p-1 rounded-lg gap-0.5">
+                        <button onclick="setTimelineFilter('all')" class="px-3 py-1.5 text-xs font-bold rounded-md ${timelineFilter==='all'?'nav-tab-active':'text-slate-500 hover:text-slate-800'}">All</button>
+                        <button onclick="setTimelineFilter('milestones')" class="px-3 py-1.5 text-xs font-bold rounded-md ${timelineFilter==='milestones'?'nav-tab-active':'text-slate-500 hover:text-slate-800'}">◆ Milestones</button>
+                    </div>
+                    <div class="flex bg-slate-100 p-1 rounded-lg gap-0.5">
+                        <button onclick="setTimelineMode('list')" class="px-3 py-1.5 text-xs font-bold rounded-md text-slate-500 hover:text-slate-800">List</button>
+                        <button class="px-3 py-1.5 text-xs font-bold rounded-md nav-tab-active">Grid</button>
+                    </div>
                 </div>
             </div>`;
 
