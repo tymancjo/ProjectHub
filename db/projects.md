@@ -1,31 +1,28 @@
-## Project: Website Redesign
-**Short Desc:** Full redesign of the company marketing site.
+## Project: Mobile App v2
+**Short Desc:** Major update to the iOS and Android apps.
+#proj:security-audit-q1 
 ---
-#active #cat:product #load:200 #proj:mobile-app-v2
-**10-01-2026** Kickoff meeting with design team. Agreed on a modern, minimal direction.
+#hold #cat:product #load:150
+**12-02-2026** Scoping session done. Feature list prioritized with product team.
 
-**28-01-2026** First wireframes reviewed. Mobile-first approach confirmed.
+**01-03-2026** Design mockups for core screens delivered.
 
-**15-02-2026** Design handoff complete. Development sprint started.
+**18-03-2026** Development paused — waiting on API team to deliver new endpoints.
 
-**14-05-2026** Beta version deployed to staging environment.
-
-## Key Goals
-- Improve page load time by 40%
-- Increase mobile conversion rate
-- Refresh brand identity across all pages
+## Blocked By
+API v3 endpoints are not ready yet. Expected delivery: June 2026.
 
 ## Tasks
-TODO: [x] Stakeholder interviews
-TODO: [x] Wireframes v1
-TODO: [x] Design system tokens
-TODO: [ ] Implement component library
-TODO: [ ] SEO audit and fixes
-TODO: [ ] Accessibility review (WCAG 2.1 AA)
-TODO: [ ] **30-06-2026** Production launch
+TODO: [x] Feature scoping
+TODO: [x] UX mockups
+TODO: [ ] Implement new onboarding flow
+TODO: [ ] Integrate push notifications v2
+TODO: [ ] Beta testing with user panel
+TODO: [ ] App store submission
 
 ## Project: ML Pipeline Refactor
 **Short Desc:** Rebuild the training and inference pipeline for scale.
+#_hidden
 ---
 #active #cat:engineering #load:350 #proj:Website
 **05-03-2026** Identified bottlenecks in the current preprocessing stage — 3× slower than needed.
@@ -48,28 +45,6 @@ TODO: [ ] Migrate evaluation module
 TODO: [ ] Load test inference service
 TODO: [x] **10-04-2026** Training pipeline v2 live
 TODO: [ ] **15-07-2026** Rollout to production (canary)
-
-## Project: Mobile App v2
-**Short Desc:** Major update to the iOS and Android apps.
-#proj:security-audit-q1 
----
-#hold #cat:product #load:150
-**12-02-2026** Scoping session done. Feature list prioritized with product team.
-
-**01-03-2026** Design mockups for core screens delivered.
-
-**18-03-2026** Development paused — waiting on API team to deliver new endpoints.
-
-## Blocked By
-API v3 endpoints are not ready yet. Expected delivery: June 2026.
-
-## Tasks
-TODO: [x] Feature scoping
-TODO: [x] UX mockups
-TODO: [ ] Implement new onboarding flow
-TODO: [ ] Integrate push notifications v2
-TODO: [ ] Beta testing with user panel
-TODO: [ ] App store submission
 
 ## Project: Data Warehouse Migration
 **Short Desc:** Move from legacy DWH to cloud-native solution.
@@ -101,6 +76,32 @@ TODO: [ ] Migrate domain: Logistics
 TODO: [ ] Decommission legacy system
 TODO: [ ] **30-06-2026** Final validation and sign-off
 TODO: [ ] **31-08-2026** Legacy system decommission
+
+## Project: Website Redesign
+**Short Desc:** Full redesign of the company marketing site.
+---
+#active #cat:product #load:200 #proj:mobile-app-v2
+**10-01-2026** Kickoff meeting with design team. Agreed on a modern, minimal direction.
+
+**28-01-2026** First wireframes reviewed. Mobile-first approach confirmed.
+
+**15-02-2026** Design handoff complete. Development sprint started.
+
+**14-05-2026** Beta version deployed to staging environment.
+
+## Key Goals
+- Improve page load time by 40%
+- Increase mobile conversion rate
+- Refresh brand identity across all pages
+
+## Tasks
+TODO: [x] Stakeholder interviews
+TODO: [x] Wireframes v1
+TODO: [x] Design system tokens
+TODO: [ ] Implement component library
+TODO: [ ] SEO audit and fixes
+TODO: [ ] Accessibility review (WCAG 2.1 AA)
+TODO: [ ] **30-06-2026** Production launch
 
 ## Project: Security Audit Q1
 **Short Desc:** Annual penetration test and vulnerability remediation.

@@ -1070,8 +1070,11 @@ HTML_TEMPLATE = """
                 container.appendChild(col);
             });
             new Sortable(container, { animation:150, handle:'.handle', onEnd: async () => {
-                const ids = Array.from(container.querySelectorAll('.project-column')).map(el => el.getAttribute('data-id'));
-                projects = ids.map(id => projects.find(p => p.id === id));
+                const newVisibleIds      = Array.from(container.querySelectorAll('.project-column')).map(el => el.getAttribute('data-id'));
+                const newVisibleProjects = newVisibleIds.map(id => projects.find(p => p.id === id));
+                const visibleSet         = new Set(newVisibleIds);
+                let vi = 0;
+                projects = projects.map(p => visibleSet.has(p.id) ? newVisibleProjects[vi++] : p);
                 fetch('/api/save-order', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(projects.map(p=>p.content)) });
             }});
         }
