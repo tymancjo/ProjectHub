@@ -802,13 +802,14 @@ HTML_TEMPLATE = """
             Object.keys(catMap).sort().forEach(cat => { if (cat !== '—') catColors[cat] = palette[ci++ % palette.length]; });
             catColors['—'] = '#94a3b8';
 
-            // Load chart data
-            const projLoads = enriched.map((p, pi) => {
+            // Load chart data — exclude #done projects
+            const activeEnriched = enriched.filter(p => !p.plainTags.includes('done'));
+            const projLoads = activeEnriched.map((p, pi) => {
                 const lm = p.content.match(/#load:(\\d+)/);
                 return { label: p.title, value: lm ? parseInt(lm[1]) : 100, color: COLORS[pi % COLORS.length] };
             });
             const catLoadTmp = {};
-            enriched.forEach((p, pi) => {
+            activeEnriched.forEach((p, pi) => {
                 const lv = projLoads[pi].value;
                 p.cats.forEach(cat => {
                     if (!catLoadTmp[cat]) catLoadTmp[cat] = { label: cat==='—'?'Uncategorized':cat, value:0, color: catColors[cat]||'#94a3b8' };
