@@ -126,6 +126,7 @@ HTML_TEMPLATE = """
         .map-card:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,0.09); }
         .progress-track { height: 4px; background: #e2e8f0; border-radius: 2px; overflow: hidden; }
         .progress-fill { height: 100%; border-radius: 2px; }
+        mark { background:#fef9e7; color:#92400e; border-radius:2px; padding:0 2px; }
     </style>
 </head>
 <body class="h-screen overflow-hidden flex flex-col">
@@ -144,9 +145,16 @@ HTML_TEMPLATE = """
                 <button id="view-todos"    onclick="setViewMode('todos')"    class="px-4 py-1.5 rounded-md text-sm font-bold transition-all text-slate-500 hover:text-slate-800">TODOs</button>
                 <button id="view-timeline" onclick="setViewMode('timeline')" class="px-4 py-1.5 rounded-md text-sm font-bold transition-all text-slate-500 hover:text-slate-800">Timeline</button>
                 <button id="view-map"      onclick="setViewMode('map')"      class="px-4 py-1.5 rounded-md text-sm font-bold transition-all text-slate-500 hover:text-slate-800">Map</button>
+                <button id="view-network"  onclick="setViewMode('network')"  class="px-4 py-1.5 rounded-md text-sm font-bold transition-all text-slate-500 hover:text-slate-800">Network</button>
             </nav>
         </div>
-        <div>
+        <div class="flex items-center gap-3">
+            <div class="relative">
+                <input id="search-input" type="text" placeholder="Search projects…"
+                    oninput="onSearchInput(event)" onkeydown="onSearchKey(event)"
+                    class="pl-8 pr-3 py-1.5 text-sm border border-slate-200 rounded-lg bg-slate-50 focus:outline-none focus:border-amber-400 focus:bg-white w-48 transition-all" autocomplete="off">
+                <svg class="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+            </div>
             <button onclick="addNewProject()" class="flex items-center gap-2 px-4 py-2 btn-accent rounded-lg font-bold shadow-md transition-all text-sm">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd" /></svg>
                 New Project
@@ -180,15 +188,24 @@ HTML_TEMPLATE = """
         <div id="todos-view"    class="hidden flex-1 overflow-y-auto p-8"></div>
         <div id="timeline-view" class="hidden flex-1 overflow-y-auto p-8"></div>
         <div id="map-view"      class="hidden flex-1 overflow-y-auto p-8"></div>
+        <div id="search-view"  class="hidden flex-1 overflow-y-auto p-8"></div>
+        <div id="network-view" class="hidden flex-1 overflow-hidden p-6"></div>
     </main>
 
     <!-- Editor Modal -->
     <div id="editor-modal" class="fixed inset-0 bg-slate-900/80 backdrop-blur-md z-50 hidden flex items-center justify-center p-4">
         <div class="bg-white rounded-2xl shadow-2xl w-full max-w-4xl flex flex-col h-[85vh] overflow-hidden">
             <div class="px-6 py-4 border-b flex justify-between items-center bg-white">
-                <div><h3 class="text-lg font-bold">Edit Project</h3><p class="text-xs text-slate-400">Markdown · <code>#tags</code> · <code>TODO: [ ] task</code> · <code>TODO: [ ] **dd-mm-yyyy** = milestone</code> · <code>#cat:name</code></p></div>
+                <div><h3 class="text-lg font-bold">Edit Project</h3><p class="text-xs text-slate-400">Markdown · <code>#tags</code> · <code>TODO: [ ] task</code> · <code>TODO: [ ] **date** = milestone</code> · <code>#cat:name</code> · <code>#proj:id</code> · <code>#load:N</code></p></div>
                 <div class="flex items-center gap-2">
                     <button onclick="insertDateAtCursor()" class="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 rounded-lg text-xs font-bold border">📅 Date</button>
+                    <div class="relative" id="proj-link-container">
+                        <button onclick="toggleProjLinkDropdown()" class="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 rounded-lg text-xs font-bold border" title="Insert project link">🔗 Link</button>
+                        <div id="proj-link-dropdown" class="hidden absolute right-0 top-full mt-1 bg-white border border-slate-200 rounded-xl shadow-xl z-[60] w-72 max-h-72 overflow-y-auto">
+                            <div class="px-3 py-2 border-b border-slate-100 text-[10px] font-black uppercase tracking-widest text-slate-400">Insert project link</div>
+                            <div id="proj-link-list"></div>
+                        </div>
+                    </div>
                     <button id="vim-toggle" onclick="toggleVimMode()" class="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 rounded-lg text-xs font-bold border" title="Toggle Vim mode">VIM</button>
                     <button onclick="closeModal()" class="p-2 hover:bg-slate-100 rounded-full text-slate-400">
                         <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
@@ -241,6 +258,8 @@ HTML_TEMPLATE = """
         let presentationFontSize = 18;
         let timelineMode = 'list';
         let timelineFilter = 'all';
+        let searchQuery = '';
+        let mapLoadMode = 'project';
         let cmEditor = null;
         let vimEnabled = localStorage.getItem('vimMode') === 'true';
 
@@ -255,9 +274,11 @@ HTML_TEMPLATE = """
         // ── View mode ─────────────────────────────────────────────────────────
         function setViewMode(mode) {
             viewMode = mode;
+            searchQuery = '';
+            document.getElementById('search-input').value = '';
             const filterBound = ['board', 'list'];
             document.getElementById('filter-bar').classList.toggle('hidden', !filterBound.includes(mode));
-            ['board','list','todos','timeline','map'].forEach(v => {
+            ['board','list','todos','timeline','map','network'].forEach(v => {
                 const btn = document.getElementById('view-' + v);
                 const el  = document.getElementById(v === 'board' ? 'board' : v + '-view');
                 if (btn) btn.className = (mode === v)
@@ -371,6 +392,42 @@ HTML_TEMPLATE = """
             loadProjects();
         }
 
+        function toggleProjLinkDropdown() {
+            const dd = document.getElementById('proj-link-dropdown');
+            const isOpen = !dd.classList.contains('hidden');
+            if (isOpen) { dd.classList.add('hidden'); return; }
+            const list = document.getElementById('proj-link-list');
+            list.innerHTML = projects
+                .filter(p => p.id !== currentEditingId)
+                .map(p => {
+                    const cats = [...p.content.matchAll(/#cat:([\\w]+)/g)].map(m => m[1]);
+                    const catBadge = cats.length ? `<span class="text-[9px] font-bold px-1.5 py-0.5 rounded-full text-white" style="background:#94a3b8">${cats[0]}</span>` : '';
+                    return `<button onclick="insertProjectLink('${p.id}')"
+                        class="w-full text-left px-3 py-2.5 hover:bg-amber-50 flex items-center justify-between gap-2 border-b border-slate-50 last:border-0">
+                        <div>
+                            <div class="text-sm font-semibold text-slate-800">${p.title}</div>
+                            <div class="text-[10px] font-mono text-slate-400">#proj:${p.id}</div>
+                        </div>
+                        ${catBadge}
+                    </button>`;
+                }).join('');
+            dd.classList.remove('hidden');
+            if (cmEditor) cmEditor.focus();
+        }
+
+        function insertProjectLink(id) {
+            document.getElementById('proj-link-dropdown').classList.add('hidden');
+            if (!cmEditor) return;
+            cmEditor.replaceRange('#proj:' + id + ' ', cmEditor.getCursor());
+            cmEditor.focus();
+        }
+
+        document.addEventListener('click', e => {
+            const container = document.getElementById('proj-link-container');
+            if (container && !container.contains(e.target))
+                document.getElementById('proj-link-dropdown').classList.add('hidden');
+        });
+
         // ── TODO view ─────────────────────────────────────────────────────────
         function parseTodos() {
             return projects.map((proj, pi) => {
@@ -464,6 +521,55 @@ HTML_TEMPLATE = """
 
         function setTimelineMode(mode) { timelineMode = mode; renderTimeline(); }
         function setTimelineFilter(f) { timelineFilter = f; renderTimeline(); }
+
+        function onSearchInput(e) { searchQuery = e.target.value; renderAll(); }
+        function onSearchKey(e) {
+            if (e.key === 'Escape') { searchQuery = ''; document.getElementById('search-input').value = ''; renderAll(); }
+        }
+
+        function renderSearch() {
+            const q = searchQuery.trim().toLowerCase();
+            function escHtml(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+            function hl(text) {
+                const s = String(text), idx = s.toLowerCase().indexOf(q);
+                if (idx < 0) return escHtml(s);
+                return escHtml(s.slice(0,idx)) + '<mark>' + escHtml(s.slice(idx,idx+q.length)) + '</mark>' + escHtml(s.slice(idx+q.length));
+            }
+            const results = [];
+            projects.forEach(proj => {
+                const hits = proj.content.split('\\n').map((line,i) => ({line,i})).filter(({line}) => line.toLowerCase().includes(q));
+                if (hits.length) results.push({proj, hits});
+            });
+            let html = `<div class="max-w-3xl mx-auto">
+                <div class="mb-6">
+                    <h2 class="text-2xl font-black text-slate-900">Search</h2>
+                    <p class="text-sm text-slate-400 mt-0.5">${results.length} project${results.length!==1?'s':''} matching <span class="text-amber-600 font-semibold">"${escHtml(searchQuery.trim())}"</span></p>
+                </div>`;
+            if (!results.length) {
+                html += '<p class="text-slate-400 text-center mt-16 text-sm">No results found.</p>';
+            } else {
+                results.forEach(({proj, hits}) => {
+                    html += `<div class="bg-white rounded-2xl shadow-sm border border-slate-200 mb-4 overflow-hidden">
+                        <div class="px-6 py-3 border-b border-slate-100 flex items-center justify-between">
+                            <button onclick="openPresentation('${proj.id}')" class="font-bold text-slate-900 hover:text-amber-600 transition-colors">${escHtml(proj.title)}</button>
+                            <div class="flex items-center gap-3">
+                                <span class="text-xs text-slate-400">${hits.length} match${hits.length!==1?'es':''}</span>
+                                <button onclick="openModal('${proj.id}')" class="text-xs font-bold px-2 py-1 rounded bg-amber-50 text-amber-700 hover:bg-amber-100 transition-colors">Edit</button>
+                            </div>
+                        </div>
+                        <div class="divide-y divide-slate-50">`;
+                    hits.slice(0,6).forEach(({line}) => {
+                        const cleaned = line.replace(/^#+\\s*/, '').replace(/^\\s*[-*>]\\s*/, '').trim();
+                        if (!cleaned) return;
+                        html += `<div class="px-6 py-2.5 text-sm text-slate-600 font-mono leading-relaxed">${hl(cleaned)}</div>`;
+                    });
+                    if (hits.length > 6) html += `<div class="px-6 py-2 text-xs text-slate-400 italic">…and ${hits.length-6} more lines</div>`;
+                    html += `</div></div>`;
+                });
+            }
+            html += '</div>';
+            document.getElementById('search-view').innerHTML = html;
+        }
 
         function renderTimeline() {
             if (timelineMode === 'grid') renderTimelineGrid();
@@ -647,6 +753,22 @@ HTML_TEMPLATE = """
         }
 
         // ── Boss Map view ─────────────────────────────────────────────────────
+        function setMapLoadMode(m) { mapLoadMode = m; renderBossMap(); }
+
+        function drawPie(slices, cx, cy, r) {
+            const total = slices.reduce((s,sl) => s+sl.value, 0) || 1;
+            let angle = -Math.PI/2, svg = '';
+            slices.forEach(sl => {
+                const sweep = sl.value/total*2*Math.PI;
+                const x1=(cx+r*Math.cos(angle)).toFixed(2), y1=(cy+r*Math.sin(angle)).toFixed(2);
+                const x2=(cx+r*Math.cos(angle+sweep)).toFixed(2), y2=(cy+r*Math.sin(angle+sweep)).toFixed(2);
+                const large = sweep > Math.PI ? 1 : 0;
+                svg += `<path d="M${cx},${cy} L${x1},${y1} A${r},${r} 0 ${large},1 ${x2},${y2} Z" fill="${sl.color}" stroke="white" stroke-width="1.5"><title>${sl.label}: ${Math.round(sl.value/total*100)}%</title></path>`;
+                angle += sweep;
+            });
+            return svg;
+        }
+
         function statusStyle(tags) {
             if (tags.includes('done'))   return { color:'#10b981', label:'Done' };
             if (tags.includes('active')) return { color:'#f7b705', label:'Active' };
@@ -662,7 +784,7 @@ HTML_TEMPLATE = """
             const enriched = projects.map(proj => {
                 const allTags  = [...proj.content.matchAll(/#([a-zA-Z][\\w:]*)/g)].map(m => m[1]);
                 const cats     = allTags.filter(t => t.startsWith('cat:')).map(t => t.slice(4));
-                const plainTags = allTags.filter(t => !t.startsWith('cat:') && !t.startsWith('_'));
+                const plainTags = allTags.filter(t => !t.startsWith('cat:') && !t.startsWith('proj:') && !t.startsWith('load:') && !t.startsWith('_'));
                 const todos    = [...proj.content.matchAll(/TODO:\\s*\\[([ x])\\]/gi)];
                 const todoDone = todos.filter(m => m[1].toLowerCase() === 'x').length;
                 const dateMs   = [...proj.content.matchAll(/\\*\\*(\\d{2}-\\d{2}-\\d{4})\\*\\*/g)].map(m => {
@@ -680,20 +802,53 @@ HTML_TEMPLATE = """
             Object.keys(catMap).sort().forEach(cat => { if (cat !== '—') catColors[cat] = palette[ci++ % palette.length]; });
             catColors['—'] = '#94a3b8';
 
+            // Load chart data
+            const projLoads = enriched.map((p, pi) => {
+                const lm = p.content.match(/#load:(\\d+)/);
+                return { label: p.title, value: lm ? parseInt(lm[1]) : 100, color: COLORS[pi % COLORS.length] };
+            });
+            const catLoadTmp = {};
+            enriched.forEach((p, pi) => {
+                const lv = projLoads[pi].value;
+                p.cats.forEach(cat => {
+                    if (!catLoadTmp[cat]) catLoadTmp[cat] = { label: cat==='—'?'Uncategorized':cat, value:0, color: catColors[cat]||'#94a3b8' };
+                    catLoadTmp[cat].value += lv;
+                });
+            });
+            const catLoads = Object.values(catLoadTmp);
+            const pieSlices = mapLoadMode === 'category' ? catLoads : projLoads;
+            const pieTotal = pieSlices.reduce((s,sl)=>s+sl.value,0)||1;
+            const pieSvg = drawPie(pieSlices, 80, 80, 72);
+
             const totalPending = enriched.reduce((s,p) => s + p.todoTotal - p.todoDone, 0);
             const totalDone    = enriched.reduce((s,p) => s + p.todoDone, 0);
             const today = new Date().toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'});
 
             let html = `<div class="max-w-6xl mx-auto">
-                <div class="flex items-end justify-between mb-10">
+                <div class="flex items-start justify-between gap-6 mb-10 flex-wrap">
                     <div>
                         <h2 class="text-3xl font-black text-slate-900">Project Map</h2>
                         <p class="text-slate-400 mt-1 text-sm">${today}</p>
+                        <div class="flex gap-8 mt-4">
+                            <div class="text-right"><div class="text-2xl font-black text-slate-900">${projects.length}</div><div class="text-[10px] font-bold uppercase tracking-widest text-slate-400 mt-0.5">Projects</div></div>
+                            <div class="text-right"><div class="text-2xl font-black text-amber-500">${totalPending}</div><div class="text-[10px] font-bold uppercase tracking-widest text-slate-400 mt-0.5">Open tasks</div></div>
+                            <div class="text-right"><div class="text-2xl font-black text-emerald-500">${totalDone}</div><div class="text-[10px] font-bold uppercase tracking-widest text-slate-400 mt-0.5">Completed</div></div>
+                        </div>
                     </div>
-                    <div class="flex gap-8">
-                        <div class="text-right"><div class="text-2xl font-black text-slate-900">${projects.length}</div><div class="text-[10px] font-bold uppercase tracking-widest text-slate-400 mt-0.5">Projects</div></div>
-                        <div class="text-right"><div class="text-2xl font-black text-amber-500">${totalPending}</div><div class="text-[10px] font-bold uppercase tracking-widest text-slate-400 mt-0.5">Open tasks</div></div>
-                        <div class="text-right"><div class="text-2xl font-black text-emerald-500">${totalDone}</div><div class="text-[10px] font-bold uppercase tracking-widest text-slate-400 mt-0.5">Completed</div></div>
+                    <div class="bg-white rounded-2xl border border-slate-200 p-4 flex gap-5 items-start">
+                        <div>
+                            <div class="flex items-center gap-2 mb-2">
+                                <span class="text-[10px] font-black uppercase tracking-widest text-slate-400">Load</span>
+                                <div class="flex bg-slate-100 p-0.5 rounded-md gap-0.5">
+                                    <button onclick="setMapLoadMode('project')" class="px-2 py-0.5 text-[10px] font-bold rounded ${mapLoadMode==='project'?'nav-tab-active':'text-slate-400 hover:text-slate-600'}">Projects</button>
+                                    <button onclick="setMapLoadMode('category')" class="px-2 py-0.5 text-[10px] font-bold rounded ${mapLoadMode==='category'?'nav-tab-active':'text-slate-400 hover:text-slate-600'}">Categories</button>
+                                </div>
+                            </div>
+                            <svg width="160" height="160" viewBox="0 0 160 160">${pieSvg}</svg>
+                        </div>
+                        <div class="text-[10px] space-y-1.5 max-h-40 overflow-y-auto pr-1 pt-6">
+                            ${pieSlices.map(sl=>`<div class="flex items-center gap-1.5"><div class="w-2 h-2 rounded-sm shrink-0" style="background:${sl.color}"></div><span class="text-slate-600 font-medium truncate max-w-[110px]">${sl.label}</span><span class="text-slate-400 font-mono ml-auto pl-2">${Math.round(sl.value/pieTotal*100)}%</span></div>`).join('')}
+                        </div>
                     </div>
                 </div>`;
 
@@ -736,8 +891,111 @@ HTML_TEMPLATE = """
             document.getElementById('map-view').innerHTML = html;
         }
 
+        // ── Network view ──────────────────────────────────────────────────────
+        function renderNetwork() {
+            const W = 1000, H = 660;
+            const palette = ['#f7b705','#10b981','#e11d48','#3b82f6','#8b5cf6','#ec4899','#14b8a6','#f97316'];
+            const catColors = {}; let ci = 0;
+            projects.forEach(p => {
+                [...p.content.matchAll(/#cat:([\\w]+)/g)].map(m => m[1]).forEach(cat => {
+                    if (!catColors[cat]) catColors[cat] = palette[ci++ % palette.length];
+                });
+            });
+
+            const nodes = projects.map((proj, i) => {
+                const cats = [...proj.content.matchAll(/#cat:([\\w]+)/g)].map(m => m[1]);
+                const color = cats.length ? (catColors[cats[0]] || '#94a3b8') : '#94a3b8';
+                const loadM = proj.content.match(/#load:(\\d+)/);
+                const r = 14 + Math.min(loadM ? parseInt(loadM[1]) / 40 : 2.5, 14);
+                return { id: proj.id, title: proj.title, color, r, x: 0, y: 0, vx: 0, vy: 0 };
+            });
+
+            const edges = [];
+            projects.forEach((proj, i) => {
+                [...proj.content.matchAll(/#proj:([\\w-]+)/g)].forEach(m => {
+                    const j = projects.findIndex(p => p.id === m[1]);
+                    if (j !== -1 && j !== i) edges.push([i, j]);
+                });
+            });
+
+            const N = nodes.length, cx = W/2, cy = H/2, initR = Math.min(W,H)*0.32;
+            nodes.forEach((n, i) => {
+                n.x = cx + initR * Math.cos(2*Math.PI*i/N - Math.PI/2);
+                n.y = cy + initR * Math.sin(2*Math.PI*i/N - Math.PI/2);
+            });
+
+            const REPEL=7000, SPRING=0.03, IDEAL=150, CENTER=0.005, DAMP=0.75;
+            for (let iter = 0; iter < 80; iter++) {
+                for (let i = 0; i < N; i++) for (let j = i+1; j < N; j++) {
+                    const dx=nodes[j].x-nodes[i].x, dy=nodes[j].y-nodes[i].y;
+                    const d2=dx*dx+dy*dy||1, d=Math.sqrt(d2), f=REPEL/d2;
+                    nodes[i].vx-=f*dx/d; nodes[i].vy-=f*dy/d;
+                    nodes[j].vx+=f*dx/d; nodes[j].vy+=f*dy/d;
+                }
+                edges.forEach(([i,j]) => {
+                    const dx=nodes[j].x-nodes[i].x, dy=nodes[j].y-nodes[i].y;
+                    const d=Math.sqrt(dx*dx+dy*dy)||1, f=(d-IDEAL)*SPRING;
+                    nodes[i].vx+=f*dx/d; nodes[i].vy+=f*dy/d;
+                    nodes[j].vx-=f*dx/d; nodes[j].vy-=f*dy/d;
+                });
+                nodes.forEach(n => {
+                    n.vx+=(cx-n.x)*CENTER; n.vy+=(cy-n.y)*CENTER;
+                    n.vx*=DAMP; n.vy*=DAMP;
+                    n.x=Math.max(n.r+8,Math.min(W-n.r-8, n.x+n.vx));
+                    n.y=Math.max(n.r+8,Math.min(H-n.r-8, n.y+n.vy));
+                });
+            }
+
+            let edgeSvg = '';
+            edges.forEach(([i,j]) => {
+                const ni=nodes[i], nj=nodes[j];
+                const dx=nj.x-ni.x, dy=nj.y-ni.y, d=Math.sqrt(dx*dx+dy*dy)||1;
+                const sx=ni.x+dx/d*(ni.r+4), sy=ni.y+dy/d*(ni.r+4);
+                const ex=nj.x-dx/d*(nj.r+6), ey=nj.y-dy/d*(nj.r+6);
+                edgeSvg += `<line x1="${sx.toFixed(1)}" y1="${sy.toFixed(1)}" x2="${ex.toFixed(1)}" y2="${ey.toFixed(1)}" stroke="#cbd5e1" stroke-width="1.5" marker-end="url(#arr)"/>`;
+            });
+
+            let nodeSvg = '';
+            nodes.forEach(n => {
+                const lbl = n.title.length > 14 ? n.title.substring(0,14)+'…' : n.title;
+                nodeSvg += `<g onclick="openPresentation('${n.id}')" style="cursor:pointer">
+                    <circle cx="${n.x.toFixed(1)}" cy="${n.y.toFixed(1)}" r="${n.r}" fill="${n.color}" stroke="white" stroke-width="2.5" opacity="0.92"/>
+                    <text x="${n.x.toFixed(1)}" y="${(n.y+n.r+13).toFixed(1)}" text-anchor="middle" font-size="10" fill="#334155" font-family="Inter,sans-serif" font-weight="600" style="pointer-events:none">${lbl}</text>
+                </g>`;
+            });
+
+            const legendEntries = Object.entries(catColors);
+            const noLinks = edges.length === 0;
+            document.getElementById('network-view').innerHTML = `
+                <div class="h-full flex flex-col">
+                    <div class="flex items-start justify-between mb-3 shrink-0 flex-wrap gap-3">
+                        <div>
+                            <h2 class="text-2xl font-black text-slate-900">Network</h2>
+                            <p class="text-sm text-slate-400">${N} project${N!==1?'s':''} · ${edges.length} link${edges.length!==1?'s':''}</p>
+                            ${noLinks ? '<p class="text-xs text-slate-400 mt-1">No links yet — add <code class="bg-slate-100 px-1 rounded">#proj:project-id</code> in any project.</p>' : ''}
+                        </div>
+                        ${legendEntries.length ? `<div class="flex flex-wrap gap-3">${legendEntries.map(([cat,col])=>`<span class="flex items-center gap-1.5 text-xs font-bold text-slate-500"><span class="w-2.5 h-2.5 rounded-sm inline-block" style="background:${col}"></span>${cat}</span>`).join('')}<span class="flex items-center gap-1.5 text-xs font-bold text-slate-400"><span class="w-2.5 h-2.5 rounded-sm inline-block bg-slate-300"></span>Uncategorized</span></div>` : ''}
+                    </div>
+                    <div class="flex-1 bg-white rounded-2xl border border-slate-200 overflow-hidden">
+                        <svg width="100%" height="100%" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg">
+                            <defs><marker id="arr" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto"><path d="M0,0 L0,6 L6,3 Z" fill="#cbd5e1"/></marker></defs>
+                            ${edgeSvg}${nodeSvg}
+                        </svg>
+                    </div>
+                </div>`;
+        }
+
         // ── Core render ───────────────────────────────────────────────────────
         function renderAll() {
+            const svEl = document.getElementById('search-view');
+            if (searchQuery.trim()) {
+                document.getElementById('filter-bar').classList.add('hidden');
+                ['board','list-view','todos-view','timeline-view','map-view','network-view'].forEach(id => { const el = document.getElementById(id); if (el) el.classList.add('hidden'); });
+                svEl.classList.remove('hidden');
+                renderSearch();
+                return;
+            }
+            svEl.classList.add('hidden');
             const allTags = new Set();
             projects.forEach(p => [...p.content.matchAll(/#(\\w+)/g)].forEach(m => allTags.add(m[1])));
 
@@ -780,6 +1038,7 @@ HTML_TEMPLATE = """
             else if (viewMode === 'todos')    renderTodos();
             else if (viewMode === 'timeline') renderTimeline();
             else if (viewMode === 'map')      renderBossMap();
+            else if (viewMode === 'network')  renderNetwork();
         }
 
         function renderBoard(items) {
