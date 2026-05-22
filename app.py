@@ -61,6 +61,7 @@ HTML_TEMPLATE = """
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Project Hub Pro</title>
+    <script>tailwind.config={darkMode:'class'}</script>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/4.3.0/marked.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.0/Sortable.min.js"></script>
@@ -72,17 +73,48 @@ HTML_TEMPLATE = """
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
 
-        body { font-family: 'Inter', sans-serif; background-color: #f8fafc; color: #1e293b; }
+        :root {
+            --bg-app: #f8fafc; --bg-surface: #ffffff; --bg-subtle: #f8fafc; --bg-muted: #f1f5f9;
+            --border: #e2e8f0; --border-subtle: #f1f5f9;
+            --text-primary: #1e293b; --text-secondary: #475569; --text-muted: #94a3b8; --text-faint: #cbd5e1;
+            --header-bg: #ffffff;
+        }
+        html.dark {
+            --bg-app: #0f172a; --bg-surface: #1e293b; --bg-subtle: #1e293b; --bg-muted: #334155;
+            --border: #334155; --border-subtle: #1e293b;
+            --text-primary: #f1f5f9; --text-secondary: #cbd5e1; --text-muted: #64748b; --text-faint: #475569;
+            --header-bg: #1e293b;
+        }
+
+        body { font-family: 'Inter', sans-serif; background-color: var(--bg-app); color: var(--text-primary); }
+
+        /* Dark mode Tailwind class overrides */
+        html.dark .bg-white   { background-color: var(--bg-surface) !important; }
+        html.dark .bg-slate-50 { background-color: var(--bg-subtle) !important; }
+        html.dark .bg-slate-100 { background-color: var(--bg-muted) !important; }
+        html.dark .bg-white\/95 { background-color: rgba(30,41,59,0.97) !important; }
+        html.dark .border-slate-200 { border-color: var(--border) !important; }
+        html.dark .border-slate-100 { border-color: var(--border-subtle) !important; }
+        html.dark .text-slate-900, html.dark .text-slate-800 { color: var(--text-primary) !important; }
+        html.dark .text-slate-700, html.dark .text-slate-600 { color: var(--text-secondary) !important; }
+        html.dark .text-slate-500, html.dark .text-slate-400 { color: var(--text-muted) !important; }
+        html.dark .text-slate-300 { color: var(--text-faint) !important; }
+        html.dark .divide-slate-50 > * { border-color: var(--border-subtle) !important; }
+        html.dark .divide-y > * + * { border-color: var(--border-subtle) !important; }
+        html.dark .shadow-sm, html.dark .shadow-md, html.dark .shadow-lg { box-shadow: 0 1px 8px rgba(0,0,0,0.4) !important; }
+        html.dark .hover\\:bg-slate-50:hover { background-color: var(--bg-muted) !important; }
+        html.dark .hover\\:bg-slate-100:hover { background-color: #475569 !important; }
+        html.dark .bg-slate-900\\/80 { background-color: rgba(2,6,23,0.90) !important; }
         .project-column { min-width: 380px; max-width: 380px; height: calc(100vh - 200px); }
 
-        .markdown-content h1 { font-size: 2em; font-weight: 800; margin-bottom: 0.8em; color: #0f172a; border-bottom: 1px solid #e2e8f0; padding-bottom: 0.4em; }
-        .markdown-content h2 { font-size: 1.5em; font-weight: 700; margin-top: 1.2em; margin-bottom: 0.6em; color: #1e293b; border-bottom: 1px solid #f1f5f9; padding-bottom: 0.2em; }
-        .markdown-content h3 { font-size: 1.2em; font-weight: 700; margin-top: 1em; margin-bottom: 0.4em; color: #334155; display: block; }
-        .markdown-content p { margin-bottom: 1em; font-size: 1em; line-height: 1.6; color: #475569; }
+        .markdown-content h1 { font-size: 2em; font-weight: 800; margin-bottom: 0.8em; color: var(--text-primary); border-bottom: 1px solid var(--border); padding-bottom: 0.4em; }
+        .markdown-content h2 { font-size: 1.5em; font-weight: 700; margin-top: 1.2em; margin-bottom: 0.6em; color: var(--text-primary); border-bottom: 1px solid var(--border-subtle); padding-bottom: 0.2em; }
+        .markdown-content h3 { font-size: 1.2em; font-weight: 700; margin-top: 1em; margin-bottom: 0.4em; color: var(--text-secondary); display: block; }
+        .markdown-content p { margin-bottom: 1em; font-size: 1em; line-height: 1.6; color: var(--text-secondary); }
         .markdown-content ul { list-style-type: disc !important; padding-left: 1.5em !important; margin-bottom: 1em !important; display: block !important; }
         .markdown-content ol { list-style-type: decimal !important; padding-left: 1.5em !important; margin-bottom: 1em !important; display: block !important; }
-        .markdown-content li { font-size: 1em; color: #475569; margin-bottom: 0.4em; display: list-item !important; list-style: inherit !important; }
-        .markdown-content code { background-color: #f1f5f9; padding: 0.2em 0.4em; border-radius: 4px; color: #be185d; font-family: monospace; font-size: 0.9em; }
+        .markdown-content li { font-size: 1em; color: var(--text-secondary); margin-bottom: 0.4em; display: list-item !important; list-style: inherit !important; }
+        .markdown-content code { background-color: var(--bg-muted); padding: 0.2em 0.4em; border-radius: 4px; color: #be185d; font-family: monospace; font-size: 0.9em; }
         .markdown-content pre { background-color: #1e293b; color: #f1f5f9; padding: 1rem; border-radius: 8px; overflow-x: auto; margin-bottom: 1em; font-size: 0.8em; }
         #board .markdown-content { font-size: 0.875rem; }
 
@@ -140,7 +172,8 @@ HTML_TEMPLATE = """
                 <h1 class="text-xl font-bold text-slate-900 tracking-tight">ProjectBoard</h1>
             </div>
             <nav class="flex bg-slate-100 p-1 rounded-lg gap-0.5">
-                <button id="view-board"    onclick="setViewMode('board')"    class="px-4 py-1.5 rounded-md text-sm font-bold transition-all nav-tab-active">Board</button>
+                <button id="view-home"     onclick="setViewMode('home')"     class="px-4 py-1.5 rounded-md text-sm font-bold transition-all nav-tab-active">Home</button>
+                <button id="view-board"    onclick="setViewMode('board')"    class="px-4 py-1.5 rounded-md text-sm font-bold transition-all text-slate-500 hover:text-slate-800">Board</button>
                 <button id="view-list"     onclick="setViewMode('list')"     class="px-4 py-1.5 rounded-md text-sm font-bold transition-all text-slate-500 hover:text-slate-800">Overview</button>
                 <button id="view-todos"    onclick="setViewMode('todos')"    class="px-4 py-1.5 rounded-md text-sm font-bold transition-all text-slate-500 hover:text-slate-800">TODOs</button>
                 <button id="view-timeline" onclick="setViewMode('timeline')" class="px-4 py-1.5 rounded-md text-sm font-bold transition-all text-slate-500 hover:text-slate-800">Timeline</button>
@@ -155,6 +188,10 @@ HTML_TEMPLATE = """
                     class="pl-8 pr-3 py-1.5 text-sm border border-slate-200 rounded-lg bg-slate-50 focus:outline-none focus:border-amber-400 focus:bg-white w-48 transition-all" autocomplete="off">
                 <svg class="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
             </div>
+            <button id="dark-toggle" onclick="toggleDarkMode()" class="p-2 rounded-lg border border-slate-200 hover:border-amber-400 transition-all text-slate-400 hover:text-amber-500" title="Toggle dark mode">
+                <svg id="dark-icon-moon" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/></svg>
+                <svg id="dark-icon-sun"  class="h-4 w-4 hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
+            </button>
             <button onclick="addNewProject()" class="flex items-center gap-2 px-4 py-2 btn-accent rounded-lg font-bold shadow-md transition-all text-sm">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd" /></svg>
                 New Project
@@ -169,6 +206,7 @@ HTML_TEMPLATE = """
     </div>
 
     <main class="flex-1 flex overflow-hidden relative">
+        <div id="home-view"     class="hidden flex-1 overflow-y-auto p-8"></div>
         <div id="board"         class="flex-1 overflow-x-auto flex gap-6 p-8 items-start"></div>
         <div id="list-view"     class="hidden flex-1 overflow-y-auto p-8 max-w-6xl mx-auto w-full">
             <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
@@ -178,6 +216,7 @@ HTML_TEMPLATE = """
                             <th class="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Project</th>
                             <th class="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Description</th>
                             <th class="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Tags</th>
+                            <th class="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">Load</th>
                             <th class="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">Chars</th>
                         </tr>
                     </thead>
@@ -253,10 +292,10 @@ HTML_TEMPLATE = """
     <script>
         let projects = [];
         let currentEditingId = null;
-        let viewMode = 'board';
+        let viewMode = 'home';
         let activeFilterTags = new Set();
         let presentationFontSize = 18;
-        let timelineMode = 'list';
+        let timelineMode = 'grid';
         let timelineFilter = 'all';
         let searchQuery = '';
         let mapLoadMode = 'project';
@@ -265,10 +304,18 @@ HTML_TEMPLATE = """
 
         const COLORS = ['#f7b705','#10b981','#e11d48','#3b82f6','#8b5cf6','#ec4899','#14b8a6','#f97316','#06b6d4','#64748b'];
 
+        let darkMode = localStorage.getItem('darkMode') === 'true';
+        function applyDarkMode() {
+            document.documentElement.classList.toggle('dark', darkMode);
+            document.getElementById('dark-icon-moon').classList.toggle('hidden',  darkMode);
+            document.getElementById('dark-icon-sun').classList.toggle('hidden',  !darkMode);
+        }
+        function toggleDarkMode() { darkMode = !darkMode; localStorage.setItem('darkMode', darkMode); applyDarkMode(); }
+
         async function loadProjects() {
             const r = await fetch('/api/projects');
             projects = await r.json();
-            renderAll();
+            setViewMode(viewMode);
         }
 
         // ── View mode ─────────────────────────────────────────────────────────
@@ -278,7 +325,7 @@ HTML_TEMPLATE = """
             document.getElementById('search-input').value = '';
             const filterBound = ['board', 'list'];
             document.getElementById('filter-bar').classList.toggle('hidden', !filterBound.includes(mode));
-            ['board','list','todos','timeline','map','network'].forEach(v => {
+            ['home','board','list','todos','timeline','map','network'].forEach(v => {
                 const btn = document.getElementById('view-' + v);
                 const el  = document.getElementById(v === 'board' ? 'board' : v + '-view');
                 if (btn) btn.className = (mode === v)
@@ -802,8 +849,8 @@ HTML_TEMPLATE = """
             Object.keys(catMap).sort().forEach(cat => { if (cat !== '—') catColors[cat] = palette[ci++ % palette.length]; });
             catColors['—'] = '#94a3b8';
 
-            // Load chart data — exclude #done projects
-            const activeEnriched = enriched.filter(p => !p.plainTags.includes('done'));
+            // Load chart data — active projects only
+            const activeEnriched = enriched.filter(p => p.plainTags.includes('active'));
             const projLoads = activeEnriched.map((p, pi) => {
                 const lm = p.content.match(/#load:(\\d+)/);
                 return { label: p.title, value: lm ? parseInt(lm[1]) : 100, color: COLORS[pi % COLORS.length] };
@@ -986,6 +1033,134 @@ HTML_TEMPLATE = """
                 </div>`;
         }
 
+        // ── Home / Dashboard view ─────────────────────────────────────────────
+        function renderHome() {
+            const today = new Date(); today.setHours(0,0,0,0);
+            const allEvents = parseDates();
+
+            // Future events: all dates >= today, ascending
+            const upcoming = allEvents.filter(e => e.date >= today).slice(0, 20);
+
+            // Recent activity: past dates (non-milestone, or milestone), descending, last 10
+            const recent = allEvents.filter(e => e.date < today).reverse().slice(0, 10);
+
+            // Open TODOs from non-done projects
+            const todoGroups = parseTodos()
+                .map(g => ({ ...g, items: g.items.filter(t => !t.done) }))
+                .filter(g => {
+                    const tags = [...g.proj.content.matchAll(/#(\\w+)/g)].map(m => m[1]);
+                    return g.items.length > 0 && !tags.includes('done');
+                });
+            const totalPending = todoGroups.reduce((s, g) => s + g.items.length, 0);
+
+            const dateLabel = today.toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+
+            let upcomingHtml = '';
+            if (!upcoming.length) {
+                upcomingHtml = '<p class="text-slate-400 text-sm text-center py-6">No upcoming events.</p>';
+            } else {
+                upcoming.forEach(e => {
+                    const isToday2 = e.date.toDateString() === today.toDateString();
+                    const msColor  = e.milestoneDone ? '#10b981' : '#f7b705';
+                    const dotEl    = e.isMilestone
+                        ? `<div style="width:10px;height:10px;transform:rotate(45deg);background:${msColor};border-radius:2px;flex-shrink:0;margin-top:3px"></div>`
+                        : `<div class="tl-dot" style="background:${e.color}"></div>`;
+                    const badge    = e.isMilestone
+                        ? `<span class="text-[9px] font-black px-1.5 py-0.5 rounded" style="${e.milestoneDone?'background:#d1fae5;color:#059669':'background:#fef9e7;color:#d4991a'}">◆ Milestone</span>`
+                        : '';
+                    const todayBadge = isToday2 ? '<span class="text-[9px] font-black px-1.5 py-0.5 rounded" style="background:#fef9e7;color:#d4991a">TODAY</span>' : '';
+                    upcomingHtml += `<div class="flex items-start gap-3 py-2.5 border-b border-slate-50 last:border-0">
+                        ${dotEl}
+                        <div class="flex-1 min-w-0">
+                            <div class="flex items-center gap-2 flex-wrap">
+                                <span class="text-xs font-mono font-bold" style="${isToday2?'color:#d4991a':'color:#94a3b8'}">${e.dateStr}</span>
+                                ${todayBadge}${badge}
+                                <button onclick="openPresentation('${e.projectId}')" class="text-[10px] font-bold px-2 py-0.5 rounded-full text-white hover:opacity-80" style="background:${e.color}">${e.projectTitle}</button>
+                            </div>
+                            ${e.context ? `<p class="text-sm text-slate-600 truncate mt-0.5">${e.context}</p>` : ''}
+                        </div>
+                    </div>`;
+                });
+            }
+
+            let recentHtml = '';
+            if (!recent.length) {
+                recentHtml = '<p class="text-slate-400 text-sm text-center py-6">No past activity found.</p>';
+            } else {
+                recent.forEach(e => {
+                    const msColor = e.milestoneDone ? '#10b981' : '#f7b705';
+                    const dotEl   = e.isMilestone
+                        ? `<div style="width:10px;height:10px;transform:rotate(45deg);background:${msColor};border-radius:2px;flex-shrink:0;margin-top:3px;opacity:0.6"></div>`
+                        : `<div class="tl-dot" style="background:${e.color};opacity:0.45"></div>`;
+                    recentHtml += `<div class="flex items-start gap-3 py-2.5 border-b border-slate-50 last:border-0 opacity-70">
+                        ${dotEl}
+                        <div class="flex-1 min-w-0">
+                            <div class="flex items-center gap-2 flex-wrap">
+                                <span class="text-xs font-mono text-slate-400">${e.dateStr}</span>
+                                <button onclick="openPresentation('${e.projectId}')" class="text-[10px] font-bold px-2 py-0.5 rounded-full text-white hover:opacity-80" style="background:${e.color}">${e.projectTitle}</button>
+                            </div>
+                            ${e.context ? `<p class="text-sm text-slate-500 truncate mt-0.5">${e.context}</p>` : ''}
+                        </div>
+                    </div>`;
+                });
+            }
+
+            let todosHtml = '';
+            if (!todoGroups.length) {
+                todosHtml = '<p class="text-slate-400 text-sm text-center py-6">No open TODOs.</p>';
+            } else {
+                todoGroups.forEach(({ proj, pi, items }) => {
+                    const col = COLORS[pi % COLORS.length];
+                    todosHtml += `<div class="mb-3">
+                        <div class="flex items-center gap-2 mb-1.5">
+                            <div class="w-2 h-2 rounded-sm shrink-0" style="background:${col}"></div>
+                            <button onclick="openModal('${proj.id}')" class="text-xs font-bold text-slate-700 hover:text-amber-600 transition-colors">${proj.title}</button>
+                            <span class="text-[10px] text-slate-300">${items.length}</span>
+                        </div>`;
+                    items.slice(0, 4).forEach(({ lineIndex, task }) => {
+                        const cleanTask = task.replace(/\\*\\*\\d{2}-\\d{2}-\\d{4}\\*\\*/g,'').replace(/\\*\\*/g,'').trim();
+                        todosHtml += `<label class="flex items-center gap-2 pl-4 py-1 hover:bg-slate-50 rounded cursor-pointer">
+                            <input type="checkbox" class="todo-checkbox" onchange="toggleTodo('${proj.id}',${lineIndex})">
+                            <span class="text-xs text-slate-600 truncate">${cleanTask}</span>
+                        </label>`;
+                    });
+                    if (items.length > 4) todosHtml += `<p class="pl-4 text-[10px] text-slate-300 italic">…and ${items.length - 4} more</p>`;
+                    todosHtml += `</div>`;
+                });
+            }
+
+            document.getElementById('home-view').innerHTML = `
+                <div class="max-w-6xl mx-auto">
+                    <div class="mb-8">
+                        <h2 class="text-3xl font-black text-slate-900">Good day</h2>
+                        <p class="text-slate-400 mt-1 text-sm">${dateLabel}</p>
+                    </div>
+                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                        <div class="lg:col-span-1 bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                            <div class="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+                                <h3 class="text-sm font-black text-slate-800 uppercase tracking-widest">Upcoming</h3>
+                                <span class="text-[10px] font-bold text-slate-400">${upcoming.length} event${upcoming.length!==1?'s':''}</span>
+                            </div>
+                            <div class="px-5 py-2">${upcomingHtml}</div>
+                        </div>
+                        <div class="lg:col-span-1 bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                            <div class="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+                                <h3 class="text-sm font-black text-slate-800 uppercase tracking-widest">Open TODOs</h3>
+                                <span class="text-[10px] font-bold px-2 py-0.5 rounded-full" style="background:#fef9e7;color:#d4991a">${totalPending}</span>
+                            </div>
+                            <div class="px-5 py-2 max-h-96 overflow-y-auto">${todosHtml}</div>
+                        </div>
+                        <div class="lg:col-span-1 bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                            <div class="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+                                <h3 class="text-sm font-black text-slate-800 uppercase tracking-widest">Recent Activity</h3>
+                                <span class="text-[10px] font-bold text-slate-400">${recent.length} entries</span>
+                            </div>
+                            <div class="px-5 py-2">${recentHtml}</div>
+                        </div>
+                    </div>
+                </div>`;
+        }
+
         // ── Core render ───────────────────────────────────────────────────────
         function renderAll() {
             const svEl = document.getElementById('search-view');
@@ -1034,7 +1209,8 @@ HTML_TEMPLATE = """
                 return !pTags.some(t => t.startsWith('_'));
             });
 
-            if      (viewMode === 'board')    renderBoard(filtered);
+            if      (viewMode === 'home')     renderHome();
+            else if (viewMode === 'board')    renderBoard(filtered);
             else if (viewMode === 'list')     renderList(filtered);
             else if (viewMode === 'todos')    renderTodos();
             else if (viewMode === 'timeline') renderTimeline();
@@ -1088,18 +1264,25 @@ HTML_TEMPLATE = """
                 const desc  = descParts.length > 1 ? descParts.slice(1).join('\\n').trim() : '';
                 const tags  = [...proj.content.matchAll(/#(\\w+)/g)].map(m => m[1]);
                 const chars = proj.content.replace(/\\s/g,'').length;
+                const loadM = proj.content.match(/#load:(\\d+)/);
+                const load  = loadM ? parseInt(loadM[1]) : null;
+                const loadHtml = load !== null
+                    ? `<span class="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded" style="background:#fef9e7;color:#d4991a">${load}</span>`
+                    : `<span class="text-[10px] font-mono text-slate-300">—</span>`;
                 const tr = document.createElement('tr');
                 tr.className = 'border-b border-slate-100 hover:bg-slate-50 cursor-pointer';
                 tr.innerHTML = `
                     <td class="px-6 py-4 font-bold text-slate-800">${proj.title}</td>
                     <td class="px-6 py-4 text-sm text-slate-500 italic">${marked.parseInline(desc)}</td>
                     <td class="px-6 py-4"><div class="flex flex-wrap gap-1">${tags.map(t=>`<span class="px-2 py-0.5 ${t.startsWith('_')?'bg-slate-50 text-slate-300':'bg-slate-100 text-slate-500'} rounded text-[10px] font-bold">#${t}</span>`).join('')}</div></td>
+                    <td class="px-6 py-4 text-right">${loadHtml}</td>
                     <td class="px-6 py-4 text-right"><span class="text-[10px] font-mono bg-slate-100 text-slate-400 px-1.5 py-0.5 rounded">${chars}ch</span></td>`;
                 tr.onclick = () => setViewMode('board');
                 body.appendChild(tr);
             });
         }
 
+        applyDarkMode();
         window.onload = loadProjects;
     </script>
 </body>
