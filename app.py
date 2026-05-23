@@ -159,6 +159,26 @@ HTML_TEMPLATE = """
         .progress-track { height: 4px; background: #e2e8f0; border-radius: 2px; overflow: hidden; }
         .progress-fill { height: 100%; border-radius: 2px; }
         mark { background:#fef9e7; color:#92400e; border-radius:2px; padding:0 2px; }
+
+        /* Priority tags */
+        .priority-p1 { border-left: 3px solid #e11d48 !important; }
+        .priority-p2 { border-left: 3px solid #f7b705 !important; }
+        .priority-p3 { border-left: 3px solid #3b82f6 !important; }
+
+        /* Quick Capture */
+        #quick-capture-panel { transform: translateY(100%); transition: transform 0.28s cubic-bezier(.4,0,.2,1); }
+        #quick-capture-panel.open { transform: translateY(0); }
+
+        /* Gantt */
+        .gantt-row-label { height: 42px; display: flex; align-items: center; padding: 0 12px; border-bottom: 1px solid rgba(226,232,240,0.5); cursor: pointer; gap: 6px; transition: background 0.1s; }
+        .gantt-row-label:hover { background: rgba(247,183,5,0.06); }
+        .gantt-group-label { height: 42px; display: flex; align-items: center; padding: 0 12px; background: var(--bg-muted); border-bottom: 1px solid var(--border); }
+
+        /* Calendar */
+        .cal-day { min-height: 86px; border-right: 1px solid #f1f5f9; border-bottom: 1px solid #f1f5f9; padding: 6px; }
+        .cal-day.today { background: #fef9e7; }
+        .cal-day.other-month { background: var(--bg-subtle); opacity: 0.65; }
+        .cal-event { font-size: 10px; font-weight: 600; padding: 2px 6px; border-radius: 4px; margin-top: 2px; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
     </style>
 </head>
 <body class="h-screen overflow-hidden flex flex-col">
@@ -179,6 +199,8 @@ HTML_TEMPLATE = """
                 <button id="view-timeline" onclick="setViewMode('timeline')" class="px-4 py-1.5 rounded-md text-sm font-bold transition-all text-slate-500 hover:text-slate-800">Timeline</button>
                 <button id="view-map"      onclick="setViewMode('map')"      class="px-4 py-1.5 rounded-md text-sm font-bold transition-all text-slate-500 hover:text-slate-800">Map</button>
                 <button id="view-network"  onclick="setViewMode('network')"  class="px-4 py-1.5 rounded-md text-sm font-bold transition-all text-slate-500 hover:text-slate-800">Network</button>
+                <button id="view-gantt"    onclick="setViewMode('gantt')"    class="px-4 py-1.5 rounded-md text-sm font-bold transition-all text-slate-500 hover:text-slate-800">Gantt</button>
+                <button id="view-calendar" onclick="setViewMode('calendar')" class="px-4 py-1.5 rounded-md text-sm font-bold transition-all text-slate-500 hover:text-slate-800">Calendar</button>
             </nav>
         </div>
         <div class="flex items-center gap-3">
@@ -228,14 +250,16 @@ HTML_TEMPLATE = """
         <div id="timeline-view" class="hidden flex-1 overflow-y-auto p-8"></div>
         <div id="map-view"      class="hidden flex-1 overflow-y-auto p-8"></div>
         <div id="search-view"  class="hidden flex-1 overflow-y-auto p-8"></div>
-        <div id="network-view" class="hidden flex-1 overflow-hidden p-6"></div>
+        <div id="network-view"  class="hidden flex-1 overflow-hidden p-6"></div>
+        <div id="gantt-view"    class="hidden flex-1 overflow-hidden p-6"></div>
+        <div id="calendar-view" class="hidden flex-1 overflow-y-auto p-8"></div>
     </main>
 
     <!-- Editor Modal -->
     <div id="editor-modal" class="fixed inset-0 bg-slate-900/80 backdrop-blur-md z-50 hidden flex items-center justify-center p-4">
         <div class="bg-white rounded-2xl shadow-2xl w-full max-w-4xl flex flex-col h-[85vh] overflow-hidden">
             <div class="px-6 py-4 border-b flex justify-between items-center bg-white">
-                <div><h3 class="text-lg font-bold">Edit Project</h3><p class="text-xs text-slate-400">Markdown · <code>#tags</code> · <code>TODO: [ ] task</code> · <code>TODO: [ ] **date** = milestone</code> · <code>#cat:name</code> · <code>#proj:id</code> · <code>#load:N</code></p></div>
+                <div><h3 class="text-lg font-bold">Edit Project</h3><p class="text-xs text-slate-400">Markdown · <code>#tags</code> · <code>TODO: [ ] task</code> · <code>TODO: [ ] **date** = milestone</code> · <code>#cat:name</code> · <code>#proj:id</code> · <code>#load:N</code> · <code>#start:dd-mm-yyyy</code> · <code>#due:dd-mm-yyyy</code> · <code>#p1/#p2/#p3</code></p></div>
                 <div class="flex items-center gap-2">
                     <button onclick="insertDateAtCursor()" class="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 rounded-lg text-xs font-bold border">📅 Date</button>
                     <div class="relative" id="proj-link-container">
@@ -289,6 +313,20 @@ HTML_TEMPLATE = """
         <main class="flex-1 overflow-y-auto p-12"><div id="presentation-content" class="presentation-card markdown-content"></div></main>
     </div>
 
+    <!-- Quick Capture Panel -->
+    <div id="quick-capture-panel" class="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 shadow-2xl z-40 px-8 py-4">
+        <div class="max-w-2xl mx-auto">
+            <div class="flex items-center gap-3 mb-2">
+                <span class="text-xs font-black uppercase tracking-widest text-slate-400">⚡ Quick Capture</span>
+                <span class="text-[10px] text-slate-300">Enter to save · Shift+Enter for newline · Esc to dismiss · saves to #inbox</span>
+                <button onclick="closeQuickCapture()" class="ml-auto p-1 hover:bg-slate-100 rounded-full text-slate-400 transition-colors">
+                    <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                </button>
+            </div>
+            <textarea id="quick-capture-input" rows="2" placeholder="Type a quick note…" onkeydown="handleQuickCaptureKey(event)" class="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm resize-none focus:outline-none focus:border-amber-400 bg-slate-50 focus:bg-white transition-all"></textarea>
+        </div>
+    </div>
+
     <script>
         let projects = [];
         let currentEditingId = null;
@@ -301,6 +339,10 @@ HTML_TEMPLATE = """
         let mapLoadMode = 'project';
         let cmEditor = null;
         let vimEnabled = localStorage.getItem('vimMode') === 'true';
+        let ganttZoom = localStorage.getItem('ganttZoom') || 'month';
+        let calendarYear = new Date().getFullYear();
+        let calendarMonth = new Date().getMonth();
+        let quickCaptureOpen = false;
 
         const COLORS = ['#f7b705','#10b981','#e11d48','#3b82f6','#8b5cf6','#ec4899','#14b8a6','#f97316','#06b6d4','#64748b'];
 
@@ -325,7 +367,7 @@ HTML_TEMPLATE = """
             document.getElementById('search-input').value = '';
             const filterBound = ['board', 'list'];
             document.getElementById('filter-bar').classList.toggle('hidden', !filterBound.includes(mode));
-            ['home','board','list','todos','timeline','map','network'].forEach(v => {
+            ['home','board','list','todos','timeline','map','network','gantt','calendar'].forEach(v => {
                 const btn = document.getElementById('view-' + v);
                 const el  = document.getElementById(v === 'board' ? 'board' : v + '-view');
                 if (btn) btn.className = (mode === v)
@@ -917,7 +959,8 @@ HTML_TEMPLATE = """
                     const pct = p.todoTotal > 0 ? Math.round((p.todoDone / p.todoTotal) * 100) : -1;
                     const dl  = p.latestDate ? p.latestDate.toLocaleDateString('en-GB',{day:'numeric',month:'short'}) : '';
                     const shortDesc = p.desc.length > 80 ? p.desc.substring(0,80) + '…' : p.desc;
-                    html += `<div class="map-card bg-white rounded-xl border border-slate-200 p-4 cursor-pointer" onclick="openPresentation('${p.id}')">
+                    const pCls = p.plainTags.includes('p1') ? ' priority-p1' : p.plainTags.includes('p2') ? ' priority-p2' : p.plainTags.includes('p3') ? ' priority-p3' : '';
+                    html += `<div class="map-card bg-white rounded-xl border border-slate-200 p-4 cursor-pointer${pCls}" onclick="openPresentation('${p.id}')">
                         <div class="flex items-start justify-between gap-2 mb-1">
                             <h4 class="font-bold text-slate-900 text-sm leading-snug">${p.title}</h4>
                             ${p.status.label ? `<span class="text-[9px] font-black px-1.5 py-0.5 rounded-full text-white shrink-0" style="background:${p.status.color}">${p.status.label}</span>` : ''}
@@ -1129,33 +1172,79 @@ HTML_TEMPLATE = """
                 });
             }
 
+            // Deadlines from #due: tags
+            const deadlines = projects.map(p => {
+                const dueM = p.content.match(/#due:(\\d{2}-\\d{2}-\\d{4})/);
+                if (!dueM) return null;
+                const [dd,mm,yyyy] = dueM[1].split('-');
+                const dueDate = new Date(+yyyy, +mm-1, +dd);
+                const diffMs  = dueDate - today;
+                const diffD   = Math.round(diffMs / 86400000);
+                const tags    = [...p.content.matchAll(/#(\\w+)/g)].map(m => m[1]);
+                if (tags.includes('done')) return null;
+                return { proj: p, dueDate, diffD, dueStr: dueM[1] };
+            }).filter(Boolean).sort((a,b) => a.diffD - b.diffD);
+
+            let deadlinesHtml = '';
+            if (!deadlines.length) {
+                deadlinesHtml = '<p class="text-slate-400 text-sm text-center py-6">No deadlines set. Add <code class="bg-slate-100 px-1 rounded">#due:dd-mm-yyyy</code> to any project.</p>';
+            } else {
+                deadlines.forEach(({ proj, diffD, dueStr }) => {
+                    const isOverdue  = diffD < 0;
+                    const isCritical = diffD >= 0 && diffD < 7;
+                    const isWarning  = diffD >= 7 && diffD < 30;
+                    const barColor   = isOverdue ? '#e11d48' : isCritical ? '#f97316' : isWarning ? '#f7b705' : '#10b981';
+                    const label      = isOverdue ? `${-diffD}d overdue` : diffD === 0 ? 'Due today' : `${diffD}d left`;
+                    deadlinesHtml += `<div class="flex items-center gap-3 py-2.5 border-b border-slate-50 last:border-0">
+                        <div style="width:8px;height:8px;border-radius:50%;background:${barColor};flex-shrink:0"></div>
+                        <div class="flex-1 min-w-0">
+                            <button onclick="openPresentation('${proj.id}')" class="text-sm font-semibold text-slate-800 hover:text-amber-600 transition-colors truncate block">${proj.title}</button>
+                            <span class="text-[10px] font-mono text-slate-400">${dueStr}</span>
+                        </div>
+                        <span class="text-[10px] font-black px-2 py-0.5 rounded-full flex-shrink-0" style="background:${barColor}20;color:${barColor}">${label}</span>
+                    </div>`;
+                });
+            }
+
             document.getElementById('home-view').innerHTML = `
                 <div class="max-w-6xl mx-auto">
-                    <div class="mb-8">
-                        <h2 class="text-3xl font-black text-slate-900">Good day</h2>
-                        <p class="text-slate-400 mt-1 text-sm">${dateLabel}</p>
+                    <div class="mb-8 flex items-start justify-between flex-wrap gap-4">
+                        <div>
+                            <h2 class="text-3xl font-black text-slate-900">Good day</h2>
+                            <p class="text-slate-400 mt-1 text-sm">${dateLabel}</p>
+                        </div>
+                        <button onclick="openQuickCapture()" class="flex items-center gap-2 px-4 py-2 bg-slate-100 hover:bg-amber-50 border border-slate-200 hover:border-amber-300 rounded-xl text-sm font-bold text-slate-600 hover:text-amber-700 transition-all" title="Press Q">
+                            <span>⚡</span> Quick Capture <kbd class="ml-1 text-[9px] px-1.5 py-0.5 rounded bg-slate-200 font-mono">Q</kbd>
+                        </button>
                     </div>
-                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                        <div class="lg:col-span-1 bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                    <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6 mb-6">
+                        <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
                             <div class="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
                                 <h3 class="text-sm font-black text-slate-800 uppercase tracking-widest">Upcoming</h3>
                                 <span class="text-[10px] font-bold text-slate-400">${upcoming.length} event${upcoming.length!==1?'s':''}</span>
                             </div>
                             <div class="px-5 py-2">${upcomingHtml}</div>
                         </div>
-                        <div class="lg:col-span-1 bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                        <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
                             <div class="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
                                 <h3 class="text-sm font-black text-slate-800 uppercase tracking-widest">Open TODOs</h3>
                                 <span class="text-[10px] font-bold px-2 py-0.5 rounded-full" style="background:#fef9e7;color:#d4991a">${totalPending}</span>
                             </div>
                             <div class="px-5 py-2 max-h-96 overflow-y-auto">${todosHtml}</div>
                         </div>
-                        <div class="lg:col-span-1 bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                        <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
                             <div class="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
                                 <h3 class="text-sm font-black text-slate-800 uppercase tracking-widest">Recent Activity</h3>
                                 <span class="text-[10px] font-bold text-slate-400">${recent.length} entries</span>
                             </div>
                             <div class="px-5 py-2">${recentHtml}</div>
+                        </div>
+                        <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                            <div class="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+                                <h3 class="text-sm font-black text-slate-800 uppercase tracking-widest">Deadlines</h3>
+                                <button onclick="setViewMode('gantt')" class="text-[10px] font-bold text-amber-500 hover:text-amber-700 transition-colors">Gantt →</button>
+                            </div>
+                            <div class="px-5 py-2 max-h-96 overflow-y-auto">${deadlinesHtml}</div>
                         </div>
                     </div>
                 </div>`;
@@ -1166,7 +1255,7 @@ HTML_TEMPLATE = """
             const svEl = document.getElementById('search-view');
             if (searchQuery.trim()) {
                 document.getElementById('filter-bar').classList.add('hidden');
-                ['board','list-view','todos-view','timeline-view','map-view','network-view'].forEach(id => { const el = document.getElementById(id); if (el) el.classList.add('hidden'); });
+                ['board','list-view','todos-view','timeline-view','map-view','network-view','gantt-view','calendar-view'].forEach(id => { const el = document.getElementById(id); if (el) el.classList.add('hidden'); });
                 svEl.classList.remove('hidden');
                 renderSearch();
                 return;
@@ -1216,6 +1305,8 @@ HTML_TEMPLATE = """
             else if (viewMode === 'timeline') renderTimeline();
             else if (viewMode === 'map')      renderBossMap();
             else if (viewMode === 'network')  renderNetwork();
+            else if (viewMode === 'gantt')    renderGantt();
+            else if (viewMode === 'calendar') renderCalendar();
         }
 
         function renderBoard(items) {
@@ -1227,8 +1318,9 @@ HTML_TEMPLATE = """
                 const desc     = descLines.length > 1 ? descLines.slice(1).join('\\n').trim() : '';
                 const body     = parts.slice(1).join('---').trim();
                 const tags     = [...proj.content.matchAll(/#(\\w+)/g)].map(m => m[1]);
+                const priorityCls = tags.includes('p1') ? ' priority-p1' : tags.includes('p2') ? ' priority-p2' : tags.includes('p3') ? ' priority-p3' : '';
                 const col = document.createElement('div');
-                col.className = 'project-column flex flex-col bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden shrink-0 transition-all hover:border-amber-400';
+                col.className = 'project-column flex flex-col bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden shrink-0 transition-all hover:border-amber-400' + priorityCls;
                 col.setAttribute('data-id', proj.id);
                 col.innerHTML = `
                     <div class="p-6 border-b border-slate-50 relative bg-white">
@@ -1282,6 +1374,280 @@ HTML_TEMPLATE = """
             });
         }
 
+        // ── Gantt view ─────────────────────────────────────────────────────────
+        const MS_PER_DAY = 86400000;
+
+        function parseGanttData(proj) {
+            const startM = proj.content.match(/#start:(\\d{2}-\\d{2}-\\d{4})/);
+            const dueM   = proj.content.match(/#due:(\\d{2}-\\d{2}-\\d{4})/);
+            function pd(s) { const [d,m,y]=s.split('-'); return new Date(+y,+m-1,+d); }
+
+            const allDates = [...proj.content.matchAll(/\\*\\*(\\d{2}-\\d{2}-\\d{4})\\*\\*/g)].map(m=>pd(m[1]));
+            let start = startM ? pd(startM[1]) : (allDates.length ? new Date(Math.min(...allDates)) : null);
+            let end   = dueM   ? pd(dueM[1])   : (allDates.length ? new Date(Math.max(...allDates)) : null);
+            if (start && end && start.getTime() === end.getTime()) end = new Date(end.getTime() + 7*MS_PER_DAY);
+
+            const milestones = [];
+            proj.content.split('\\n').forEach((line, li) => {
+                const tM = line.match(/TODO:\\s*\\[([ x])\\]/i);
+                const dM = line.match(/\\*\\*(\\d{2}-\\d{2}-\\d{4})\\*\\*/);
+                if (tM && dM) milestones.push({
+                    date: pd(dM[1]),
+                    context: line.replace(/TODO:\\s*\\[[ x]\\]\\s*/gi,'').replace(/\\*\\*\\d{2}-\\d{2}-\\d{4}\\*\\*/g,'').replace(/[*#>`_]/g,'').trim(),
+                    done: tM[1].toLowerCase()==='x', lineIndex: li
+                });
+            });
+
+            const todos    = [...proj.content.matchAll(/TODO:\\s*\\[([ x])\\]/gi)];
+            const todoDone = todos.filter(m=>m[1].toLowerCase()==='x').length;
+            const allTags  = [...proj.content.matchAll(/#([a-zA-Z][\\w:]*)/g)].map(m=>m[1]);
+            const cats     = allTags.filter(t=>t.startsWith('cat:')).map(t=>t.slice(4));
+            const plainTags = allTags.filter(t=>!t.startsWith('cat:')&&!t.startsWith('proj:')&&!t.startsWith('load:')&&!t.startsWith('_'));
+            const rawDesc  = (proj.content.split('---')[0]||'').split('\\n').slice(1).join(' ')
+                .replace(/\\*\\*Short Desc:\\*\\*/gi,'').replace(/\\*\\*/g,'').trim();
+            return { ...proj, start, end, milestones, cats: cats.length?cats:['—'], plainTags, todoDone, todoTotal: todos.length, desc: rawDesc, status: statusStyle(plainTags) };
+        }
+
+        function renderGantt() {
+            const ganttData = projects.map(parseGanttData);
+            const dated     = ganttData.filter(p => p.start && p.end);
+            const undated   = ganttData.filter(p => !p.start || !p.end);
+            const today     = new Date(); today.setHours(0,0,0,0);
+
+            let minDate = new Date(today.getTime() - 30*MS_PER_DAY);
+            let maxDate = new Date(today.getTime() + 90*MS_PER_DAY);
+            dated.forEach(p => {
+                if (p.start < minDate) minDate = new Date(p.start);
+                if (p.end   > maxDate) maxDate = new Date(p.end);
+            });
+            minDate = new Date(minDate.getFullYear(), minDate.getMonth()-1, 1);
+            maxDate = new Date(maxDate.getFullYear(), maxDate.getMonth()+2, 1);
+
+            const ZOOM_PPD = { week:28, month:10, quarter:4 };
+            const ppd      = ZOOM_PPD[ganttZoom] || 10;
+            const SVG_W    = Math.max(700, Math.ceil((maxDate - minDate) / MS_PER_DAY * ppd));
+            const ROW_H=42, BAR_H=18, AXIS_H=46, LABEL_W=210;
+            function xp(d) { return (d - minDate) / MS_PER_DAY * ppd; }
+
+            const palette = ['#f7b705','#10b981','#e11d48','#3b82f6','#8b5cf6','#ec4899','#14b8a6','#f97316'];
+            const catColors = {}; let gci = 0;
+            ganttData.forEach(p => p.cats.forEach(cat => { if (cat!=='—'&&!catColors[cat]) catColors[cat]=palette[gci++%palette.length]; }));
+            catColors['—'] = '#94a3b8';
+
+            const rows = [];
+            const catMap = {};
+            dated.forEach(p => { const cat=p.cats[0]||'—'; if(!catMap[cat])catMap[cat]=[]; catMap[cat].push(p); });
+            Object.keys(catMap).sort((a,b)=>a==='—'?1:b==='—'?-1:a.localeCompare(b)).forEach(cat => {
+                rows.push({ type:'group', cat, color: catColors[cat]||'#94a3b8' });
+                catMap[cat].forEach(p => rows.push({ type:'project', p, color: catColors[p.cats[0]||'—']||'#94a3b8' }));
+            });
+            if (undated.length) {
+                rows.push({ type:'group', cat:'Undated', color:'#e2e8f0' });
+                undated.forEach(p => rows.push({ type:'project', p, undated:true }));
+            }
+
+            const svgH = AXIS_H + rows.length * ROW_H + 8;
+
+            const months = [];
+            let cur = new Date(minDate.getFullYear(), minDate.getMonth(), 1);
+            while (cur < maxDate) { months.push(new Date(cur)); cur = new Date(cur.getFullYear(), cur.getMonth()+1, 1); }
+
+            let axisSvg = '';
+            months.forEach((m, i) => {
+                const x1 = xp(m).toFixed(1);
+                const nextM = months[i+1] || maxDate;
+                const mx = ((xp(m)+xp(nextM))/2).toFixed(1);
+                axisSvg += `<rect x="${x1}" y="0" width="${(xp(nextM)-xp(m)).toFixed(1)}" height="${AXIS_H}" fill="${i%2===0?'#f8fafc':'#f1f5f9'}"/>`;
+                axisSvg += `<line x1="${x1}" y1="0" x2="${x1}" y2="${svgH}" stroke="#e2e8f0" stroke-width="0.5"/>`;
+                axisSvg += `<text x="${mx}" y="28" text-anchor="middle" font-size="11" font-weight="700" fill="#64748b" font-family="Inter,sans-serif">${m.toLocaleDateString('en-GB',{month:'short',year:'numeric'})}</text>`;
+            });
+            const todayX = xp(today);
+            axisSvg += `<line x1="${todayX.toFixed(1)}" y1="0" x2="${todayX.toFixed(1)}" y2="${svgH}" stroke="#f7b705" stroke-width="2" stroke-dasharray="4,3" opacity="0.85"/>`;
+            axisSvg += `<text x="${todayX.toFixed(1)}" y="${AXIS_H-6}" text-anchor="middle" font-size="9" font-weight="900" fill="#f7b705" font-family="Inter,sans-serif">TODAY</text>`;
+
+            let depSvg = '';
+            dated.forEach(p => {
+                [...p.content.matchAll(/#proj:([\\w-]+)/g)].forEach(m => {
+                    const tgt = ganttData.find(gp=>gp.id===m[1]);
+                    if (!tgt||!tgt.start||!p.end) return;
+                    const fr = rows.findIndex(r=>r.type==='project'&&r.p&&r.p.id===p.id);
+                    const to = rows.findIndex(r=>r.type==='project'&&r.p&&r.p.id===tgt.id);
+                    if (fr<0||to<0) return;
+                    const x1=xp(p.end).toFixed(1), x2=xp(tgt.start).toFixed(1);
+                    const y1=(AXIS_H+fr*ROW_H+ROW_H/2).toFixed(1), y2=(AXIS_H+to*ROW_H+ROW_H/2).toFixed(1);
+                    const cx1=(parseFloat(x1)+40).toFixed(1), cx2=(parseFloat(x2)-40).toFixed(1);
+                    depSvg += `<path d="M ${x1} ${y1} C ${cx1} ${y1} ${cx2} ${y2} ${x2} ${y2}" stroke="#cbd5e1" stroke-width="1.5" fill="none" stroke-dasharray="4,3" marker-end="url(#gantt-arr)"/>`;
+                });
+            });
+
+            let barSvg = '';
+            rows.forEach((row, ri) => {
+                const y = AXIS_H + ri * ROW_H;
+                barSvg += `<rect x="0" y="${y}" width="${SVG_W}" height="${ROW_H}" fill="${ri%2===0?'rgba(248,250,252,0.5)':'transparent'}"/>`;
+                if (row.type==='group') { barSvg += `<line x1="0" y1="${y+ROW_H-0.5}" x2="${SVG_W}" y2="${y+ROW_H-0.5}" stroke="#e2e8f0" stroke-width="1"/>`; return; }
+                if (row.undated) return;
+                const p=row.p, x1=xp(p.start), x2=xp(p.end), bw=Math.max(x2-x1,6), by=y+(ROW_H-BAR_H)/2;
+                const bc = p.status.label==='Done'?'#10b981':p.status.label==='Active'?(row.color||'#f7b705'):p.status.label==='Hold'?'#94a3b8':p.status.label==='Backlog'?'#8b5cf6':(row.color||'#94a3b8');
+                const pct = p.todoTotal>0 ? p.todoDone/p.todoTotal : (p.status.label==='Done'?1:0);
+                const isHold = p.status.label==='Hold';
+                barSvg += `<rect x="${x1.toFixed(1)}" y="${by.toFixed(1)}" width="${bw.toFixed(1)}" height="${BAR_H}" rx="4" fill="${bc}" opacity="${isHold?'0.15':'0.12'}"/>`;
+                if (pct>0) barSvg += `<rect x="${x1.toFixed(1)}" y="${by.toFixed(1)}" width="${(bw*pct).toFixed(1)}" height="${BAR_H}" rx="4" fill="${bc}" opacity="${isHold?'0.35':'0.6'}"/>`;
+                barSvg += `<rect x="${x1.toFixed(1)}" y="${by.toFixed(1)}" width="${bw.toFixed(1)}" height="${BAR_H}" rx="4" fill="none" stroke="${bc}" stroke-width="1.5" opacity="0.65"${isHold?' stroke-dasharray="5,3"':''}/>`;
+                if (bw>50&&p.todoTotal>0) barSvg += `<text x="${(x1+bw/2).toFixed(1)}" y="${(by+BAR_H/2+3.5).toFixed(1)}" text-anchor="middle" font-size="9" font-weight="700" fill="${bc}" font-family="Inter,sans-serif">${Math.round(pct*100)}%</text>`;
+                p.milestones.forEach(ms => {
+                    const mx=xp(ms.date); if (mx<0||mx>SVG_W) return;
+                    const mcy=y+ROW_H/2, mc=ms.done?'#10b981':'#f7b705';
+                    barSvg += `<rect x="${(mx-5).toFixed(1)}" y="${(mcy-5).toFixed(1)}" width="10" height="10" transform="rotate(45,${mx.toFixed(1)},${mcy.toFixed(1)})" fill="${mc}" stroke="white" stroke-width="1.5" style="cursor:pointer" onclick="toggleTodo('${p.id}',${ms.lineIndex})"><title>${ms.context||'Milestone'}</title></rect>`;
+                });
+                barSvg += `<rect x="${x1.toFixed(1)}" y="${by.toFixed(1)}" width="${bw.toFixed(1)}" height="${BAR_H}" rx="4" fill="transparent" style="cursor:pointer" onclick="openPresentation('${p.id}')"/>`;
+            });
+
+            const labelHtml = rows.map(row => {
+                if (row.type==='group') return `<div class="gantt-group-label" style="height:${ROW_H}px"><div style="width:8px;height:8px;border-radius:2px;background:${row.color};margin-right:8px;flex-shrink:0"></div><span style="font-size:10px;font-weight:900;letter-spacing:0.08em;text-transform:uppercase;color:#475569">${row.cat==='—'?'Uncategorized':row.cat}</span></div>`;
+                const p=row.p, pct=p.todoTotal>0?Math.round(p.todoDone/p.todoTotal*100):-1;
+                const dot = p.status.label ? `<span style="width:7px;height:7px;border-radius:50%;background:${p.status.color};flex-shrink:0;display:inline-block"></span>` : '';
+                if (row.undated) return `<div class="gantt-row-label" style="height:${ROW_H}px;opacity:0.5" onclick="openModal('${p.id}')">${dot}<span style="font-size:12px;font-weight:600;color:#334155;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1;min-width:0">${p.title}</span><span style="font-size:9px;color:#94a3b8;flex-shrink:0">no dates</span></div>`;
+                return `<div class="gantt-row-label" style="height:${ROW_H}px" onclick="openPresentation('${p.id}')">${dot}<span style="font-size:12px;font-weight:600;color:#334155;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1;min-width:0">${p.title}</span>${pct>=0?`<span style="font-size:9px;color:#94a3b8;flex-shrink:0;font-family:monospace">${pct}%</span>`:''}</div>`;
+            }).join('');
+
+            const zoomBtns = ['week','month','quarter'].map(z =>
+                `<button onclick="ganttZoom='${z}';localStorage.setItem('ganttZoom','${z}');renderGantt()" style="padding:4px 14px;border-radius:6px;font-size:11px;font-weight:700;border:none;cursor:pointer;transition:all 0.15s;${ganttZoom===z?'background:#f7b705;color:#1c1917':'background:#f1f5f9;color:#64748b'}">${z.charAt(0).toUpperCase()+z.slice(1)}</button>`
+            ).join('');
+
+            document.getElementById('gantt-view').innerHTML = `
+                <div style="height:100%;display:flex;flex-direction:column">
+                    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-shrink:0;flex-wrap:wrap;gap:8px">
+                        <div>
+                            <h2 style="font-size:1.5rem;font-weight:900;color:var(--text-primary)">Gantt Chart</h2>
+                            <p style="font-size:11px;color:#94a3b8;margin-top:2px">${dated.length} project${dated.length!==1?'s':''} plotted &middot; tags: <code style="background:var(--bg-muted);padding:1px 5px;border-radius:3px">#start:dd-mm-yyyy</code> &middot; <code style="background:var(--bg-muted);padding:1px 5px;border-radius:3px">#due:dd-mm-yyyy</code></p>
+                        </div>
+                        <div style="display:flex;gap:4px;background:var(--bg-muted);padding:4px;border-radius:8px;border:1px solid var(--border)">${zoomBtns}</div>
+                    </div>
+                    <div style="flex:1;overflow:auto;border:1px solid var(--border);border-radius:16px;background:var(--bg-surface);display:flex;min-height:0">
+                        <div style="width:${LABEL_W}px;flex-shrink:0;border-right:2px solid var(--border);position:sticky;left:0;background:var(--bg-surface);z-index:3">
+                            <div style="height:${AXIS_H}px;display:flex;align-items:flex-end;padding:0 12px 8px;border-bottom:1px solid var(--border);font-size:10px;font-weight:900;letter-spacing:0.1em;text-transform:uppercase;color:#94a3b8">Projects</div>
+                            ${labelHtml}
+                        </div>
+                        <div style="flex:1;overflow-x:auto">
+                            <svg width="${SVG_W}" height="${svgH}" xmlns="http://www.w3.org/2000/svg" style="display:block">
+                                <defs><marker id="gantt-arr" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto"><path d="M0,0 L0,6 L6,3 Z" fill="#cbd5e1"/></marker></defs>
+                                ${axisSvg}${depSvg}${barSvg}
+                            </svg>
+                        </div>
+                    </div>
+                </div>`;
+        }
+
+        // ── Calendar view ─────────────────────────────────────────────────────
+        function renderCalendar() {
+            const allEvents = parseDates();
+            const year=calendarYear, month=calendarMonth;
+            const firstDay = new Date(year, month, 1);
+            const lastDay  = new Date(year, month+1, 0);
+            const startDow = (firstDay.getDay() + 6) % 7; // 0=Mon
+            const monthName = firstDay.toLocaleDateString('en-GB',{month:'long',year:'numeric'});
+            const today = new Date(); today.setHours(0,0,0,0);
+
+            const monthEvts = {};
+            allEvents.forEach(e => {
+                if (e.date.getFullYear()===year && e.date.getMonth()===month) {
+                    const d = e.date.getDate();
+                    if (!monthEvts[d]) monthEvts[d] = [];
+                    monthEvts[d].push(e);
+                }
+            });
+
+            const DAYS = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+            let calHtml = `<div class="max-w-5xl mx-auto">
+                <div class="flex items-center gap-4 mb-6">
+                    <button onclick="calNavMonth(-1)" class="p-2 hover:bg-slate-100 rounded-lg transition-colors text-slate-400 hover:text-slate-700"><svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg></button>
+                    <h2 class="text-2xl font-black text-slate-900 flex-1 text-center">${monthName}</h2>
+                    <button onclick="calNavMonth(1)" class="p-2 hover:bg-slate-100 rounded-lg transition-colors text-slate-400 hover:text-slate-700"><svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg></button>
+                </div>
+                <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                    <div class="grid grid-cols-7 border-b border-slate-200">
+                        ${DAYS.map(d=>`<div class="py-3 text-center text-xs font-black uppercase tracking-widest text-slate-400">${d}</div>`).join('')}
+                    </div>
+                    <div class="grid grid-cols-7">`;
+
+            for (let i=0; i<startDow; i++) {
+                const pd = new Date(year, month, -startDow+i+1);
+                calHtml += `<div class="cal-day other-month"><div class="text-xs font-bold text-slate-300 mb-1">${pd.getDate()}</div></div>`;
+            }
+            for (let d=1; d<=lastDay.getDate(); d++) {
+                const isToday = today.getFullYear()===year && today.getMonth()===month && today.getDate()===d;
+                const evts = monthEvts[d] || [];
+                calHtml += `<div class="cal-day${isToday?' today':''}">
+                    <div class="text-xs font-bold mb-1 ${isToday?'text-amber-600':'text-slate-400'}">${d}${isToday?' ★':''}</div>`;
+                evts.forEach(e => {
+                    const msIcon = e.isMilestone ? '◆ ' : '';
+                    calHtml += `<div class="cal-event" style="background:${e.color}22;color:${e.color};border:1px solid ${e.color}44" onclick="openPresentation('${e.projectId}')" title="${e.context||e.projectTitle}">${msIcon}${(e.context||e.projectTitle).substring(0,20)}</div>`;
+                });
+                calHtml += `</div>`;
+            }
+            const totalCells = startDow + lastDay.getDate();
+            const trailing = (7 - (totalCells % 7)) % 7;
+            for (let i=1; i<=trailing; i++) calHtml += `<div class="cal-day other-month"><div class="text-xs font-bold text-slate-300 mb-1">${i}</div></div>`;
+
+            calHtml += `</div></div>
+                <p class="text-center text-xs text-slate-300 mt-4">Click an event to open project · Dates from <code class="bg-slate-100 px-1 rounded">**dd-mm-yyyy**</code> markers · ◆ = milestone</p>
+            </div>`;
+            document.getElementById('calendar-view').innerHTML = calHtml;
+        }
+
+        function calNavMonth(delta) {
+            calendarMonth += delta;
+            if (calendarMonth > 11) { calendarMonth=0; calendarYear++; }
+            if (calendarMonth < 0)  { calendarMonth=11; calendarYear--; }
+            renderCalendar();
+        }
+
+        // ── Quick Capture ─────────────────────────────────────────────────────
+        function openQuickCapture() {
+            if (quickCaptureOpen) return;
+            quickCaptureOpen = true;
+            document.getElementById('quick-capture-panel').classList.add('open');
+            setTimeout(() => { const el=document.getElementById('quick-capture-input'); if(el) el.focus(); }, 290);
+        }
+
+        function closeQuickCapture() {
+            quickCaptureOpen = false;
+            document.getElementById('quick-capture-panel').classList.remove('open');
+            const el = document.getElementById('quick-capture-input');
+            if (el) el.value = '';
+        }
+
+        function handleQuickCaptureKey(e) {
+            if (e.key === 'Escape') { closeQuickCapture(); return; }
+            if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); saveQuickCapture(); }
+        }
+
+        async function saveQuickCapture() {
+            const el  = document.getElementById('quick-capture-input');
+            const val = el ? el.value.trim() : '';
+            if (!val) { closeQuickCapture(); return; }
+            const today = new Date().toLocaleDateString('en-GB').replace(/\\//g,'-');
+            const note  = '\\n\\n**' + today + '** ' + val;
+            let inboxIdx = projects.findIndex(p => [...p.content.matchAll(/#(\\w+)/g)].map(m=>m[1]).includes('inbox'));
+            if (inboxIdx < 0) {
+                projects.push({ id:'inbox-'+Date.now(), title:'Inbox', content:'## Project: Inbox\\n**Short Desc:** Quick captures and fleeting notes.\\n---\\n#inbox\\n' });
+                inboxIdx = projects.length - 1;
+            }
+            projects[inboxIdx].content += note;
+            await fetch('/api/save-order', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(projects.map(p=>p.content)) });
+            closeQuickCapture();
+            await loadProjects();
+        }
+
+        document.addEventListener('keydown', e => {
+            const tag = ((document.activeElement||{}).tagName||'').toUpperCase();
+            const editorOpen = !document.getElementById('editor-modal').classList.contains('hidden');
+            const presOpen   = !document.getElementById('presentation-modal').classList.contains('hidden');
+            const inInput = ['INPUT','TEXTAREA'].includes(tag) || editorOpen || presOpen;
+            if (e.key === 'q' && !inInput && !quickCaptureOpen) { e.preventDefault(); openQuickCapture(); }
+            if (e.key === 'Escape' && quickCaptureOpen) closeQuickCapture();
+        });
+
         applyDarkMode();
         window.onload = loadProjects;
     </script>
@@ -1298,6 +1664,30 @@ def get_projects(): return jsonify(read_projects())
 @app.route("/api/save-order", methods=["POST"])
 def save_order():
     save_projects_to_file(request.json)
+    return jsonify({"status": "success"})
+
+@app.route("/api/update-tags", methods=["POST"])
+def update_tags():
+    data = request.json  # {projectId, tagKey, tagValue}
+    projects = read_projects()
+    proj = next((p for p in projects if p['id'] == data['projectId']), None)
+    if not proj:
+        return jsonify({"status": "error", "msg": "project not found"}), 404
+    tag_key = data['tagKey']   # e.g. "due" or "start"
+    tag_val = data['tagValue'] # e.g. "30-07-2026"
+    pattern = rf'#({re.escape(tag_key)}:\d{{2}}-\d{{2}}-\d{{4}})'
+    replacement = f'#{tag_key}:{tag_val}'
+    if re.search(pattern, proj['content']):
+        proj['content'] = re.sub(pattern, replacement, proj['content'])
+    else:
+        # Append after first tag line
+        lines = proj['content'].split('\n')
+        for i, line in enumerate(lines):
+            if re.search(r'#\w', line):
+                lines[i] = lines[i] + f' #{tag_key}:{tag_val}'
+                break
+        proj['content'] = '\n'.join(lines)
+    save_projects_to_file([p['content'] for p in projects])
     return jsonify({"status": "success"})
 
 @app.route("/api/toggle-todo", methods=["POST"])

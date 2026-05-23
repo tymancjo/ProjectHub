@@ -2,7 +2,7 @@
 **Short Desc:** Major update to the iOS and Android apps.
 #proj:security-audit-q1 
 ---
-#hold #cat:product #load:150
+#hold #cat:product #load:150 #start:12-02-2026 #due:30-09-2026
 **12-02-2026** Scoping session done. Feature list prioritized with product team.
 
 **01-03-2026** Design mockups for core screens delivered.
@@ -24,7 +24,7 @@ TODO: [ ] App store submission
 **Short Desc:** Rebuild the training and inference pipeline for scale.
 #_hidden
 ---
-#active #cat:engineering #load:350 #proj:Website
+#active #cat:engineering #load:350 #proj:Website #start:05-03-2026 #due:15-07-2026
 **05-03-2026** Identified bottlenecks in the current preprocessing stage — 3× slower than needed.
 
 **20-03-2026** New pipeline architecture agreed upon. Moving to streaming ingestion.
@@ -49,7 +49,7 @@ TODO: [ ] **15-07-2026** Rollout to production (canary)
 ## Project: Data Warehouse Migration
 **Short Desc:** Move from legacy DWH to cloud-native solution.
 ---
-#active #cat:infrastructure #load:400
+#active #cat:infrastructure #load:400 #start:15-01-2026 #due:31-08-2026
 **15-01-2026** Initial audit of existing tables and data volumes completed.
 
 **10-02-2026** Vendor selected after evaluation of three options.
@@ -80,7 +80,7 @@ TODO: [ ] **31-08-2026** Legacy system decommission
 ## Project: Website Redesign
 **Short Desc:** Full redesign of the company marketing site.
 ---
-#active #cat:product #load:200 #proj:mobile-app-v2
+#active #cat:product #load:200 #proj:mobile-app-v2 #p2 #start:10-01-2026 #due:30-06-2026
 **10-01-2026** Kickoff meeting with design team. Agreed on a modern, minimal direction.
 
 **28-01-2026** First wireframes reviewed. Mobile-first approach confirmed.
@@ -106,7 +106,7 @@ TODO: [ ] **30-06-2026** Production launch
 ## Project: Security Audit Q1
 **Short Desc:** Annual penetration test and vulnerability remediation.
 ---
-#done #cat:infrastructure #load:80
+#done #cat:infrastructure #load:80 #start:08-01-2026 #due:28-02-2026
 **08-01-2026** Engaged external security firm. Scope agreed.
 
 **20-01-2026** Pen test execution window (1 week). No critical findings.
@@ -131,7 +131,7 @@ TODO: [x] Obtain sign-off
 ## Project: Team Onboarding Docs
 **Short Desc:** Build a comprehensive onboarding guide for new engineers.
 ---
-#backlog #cat:people #load:60
+#backlog #cat:people #load:60 #due:01-10-2026
 ## Planned Content
 - Development environment setup
 - Architecture overview
