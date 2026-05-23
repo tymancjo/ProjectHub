@@ -210,6 +210,9 @@ HTML_TEMPLATE = """
                     class="pl-8 pr-3 py-1.5 text-sm border border-slate-200 rounded-lg bg-slate-50 focus:outline-none focus:border-amber-400 focus:bg-white w-48 transition-all" autocomplete="off">
                 <svg class="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
             </div>
+            <button onclick="openHelp()" class="p-2 rounded-lg border border-slate-200 hover:border-amber-400 transition-all text-slate-400 hover:text-amber-500" title="Help &amp; syntax reference">
+                <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            </button>
             <button id="dark-toggle" onclick="toggleDarkMode()" class="p-2 rounded-lg border border-slate-200 hover:border-amber-400 transition-all text-slate-400 hover:text-amber-500" title="Toggle dark mode">
                 <svg id="dark-icon-moon" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/></svg>
                 <svg id="dark-icon-sun"  class="h-4 w-4 hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
@@ -311,6 +314,179 @@ HTML_TEMPLATE = """
             </div>
         </header>
         <main class="flex-1 overflow-y-auto p-12"><div id="presentation-content" class="presentation-card markdown-content"></div></main>
+    </div>
+
+    <!-- Help Modal -->
+    <div id="help-modal" class="fixed inset-0 bg-slate-900/80 backdrop-blur-md z-50 hidden flex items-center justify-center p-4" onclick="if(event.target===this)closeHelp()">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[88vh] flex flex-col overflow-hidden">
+            <!-- Header -->
+            <div class="px-6 py-4 border-b flex justify-between items-center shrink-0">
+                <div class="flex items-center gap-3">
+                    <div class="p-2 rounded-xl shadow" style="background:#f7b705">
+                        <svg class="h-5 w-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                    </div>
+                    <div>
+                        <h2 class="text-lg font-black text-slate-900">Help &amp; Reference</h2>
+                        <p class="text-xs text-slate-400">Keyboard shortcuts · Data syntax · Views</p>
+                    </div>
+                </div>
+                <button onclick="closeHelp()" class="p-2 hover:bg-slate-100 rounded-full text-slate-400 transition-colors">
+                    <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                </button>
+            </div>
+            <!-- Scrollable body -->
+            <div class="overflow-y-auto flex-1 px-6 py-5 space-y-6 text-sm text-slate-700">
+
+                <!-- Keyboard shortcuts -->
+                <section>
+                    <h3 class="text-xs font-black uppercase tracking-widest text-slate-400 mb-3">⌨️ Keyboard Shortcuts</h3>
+                    <div class="grid grid-cols-2 gap-2">
+                        <div class="flex items-center gap-3 p-2 rounded-lg bg-slate-50">
+                            <kbd class="px-2 py-1 rounded bg-white border border-slate-200 text-xs font-mono font-bold shadow-sm">Q</kbd>
+                            <span class="text-slate-600">Quick capture note</span>
+                        </div>
+                        <div class="flex items-center gap-3 p-2 rounded-lg bg-slate-50">
+                            <kbd class="px-2 py-1 rounded bg-white border border-slate-200 text-xs font-mono font-bold shadow-sm">?</kbd>
+                            <span class="text-slate-600">Open this help panel</span>
+                        </div>
+                        <div class="flex items-center gap-3 p-2 rounded-lg bg-slate-50">
+                            <kbd class="px-2 py-1 rounded bg-white border border-slate-200 text-xs font-mono font-bold shadow-sm">Esc</kbd>
+                            <span class="text-slate-600">Close any modal / panel</span>
+                        </div>
+                        <div class="flex items-center gap-3 p-2 rounded-lg bg-slate-50">
+                            <kbd class="px-2 py-1 rounded bg-white border border-slate-200 text-xs font-mono font-bold shadow-sm">Enter</kbd>
+                            <span class="text-slate-600">Save quick capture</span>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Project syntax -->
+                <section>
+                    <h3 class="text-xs font-black uppercase tracking-widest text-slate-400 mb-3">📄 Project File Syntax</h3>
+                    <div class="bg-slate-900 rounded-xl p-4 font-mono text-xs leading-relaxed text-slate-200 overflow-x-auto">
+<span class="text-amber-400">## Project: My Project Name</span>
+<span class="text-slate-400">**Short Desc:** One-line summary shown in Overview &amp; Map.</span>
+<span class="text-slate-500">---</span>
+<span class="text-emerald-400">#active #cat:engineering #load:120 #p1</span>
+<span class="text-slate-500">#start:01-05-2026 #due:30-06-2026</span>
+<span class="text-slate-500">#proj:other-project-id</span>
+
+Free-form Markdown notes here.
+
+<span class="text-sky-400">**14-05-2026**</span> Creates a Timeline entry.
+
+<span class="text-yellow-300">TODO: [ ] Open task</span>
+<span class="text-yellow-300">TODO: [x] Completed task</span>
+<span class="text-yellow-300">TODO: [ ] **30-06-2026** Milestone with due date</span>
+                    </div>
+                </section>
+
+                <!-- Tags reference -->
+                <section>
+                    <h3 class="text-xs font-black uppercase tracking-widest text-slate-400 mb-3">🏷️ Special Tags</h3>
+                    <div class="grid grid-cols-1 gap-1.5">
+                        <div class="grid grid-cols-[180px_1fr] gap-3 px-3 py-2 rounded-lg bg-slate-50 items-start">
+                            <code class="text-xs font-mono font-bold text-rose-600">#active / #done / #hold / #backlog</code>
+                            <span class="text-slate-600 text-xs">Status badge on Map &amp; Gantt bar colour</span>
+                        </div>
+                        <div class="grid grid-cols-[180px_1fr] gap-3 px-3 py-2 rounded-lg bg-slate-50 items-start">
+                            <code class="text-xs font-mono font-bold text-rose-600">#cat:name</code>
+                            <span class="text-slate-600 text-xs">Groups project in Map &amp; Gantt swimlanes</span>
+                        </div>
+                        <div class="grid grid-cols-[180px_1fr] gap-3 px-3 py-2 rounded-lg bg-slate-50 items-start">
+                            <code class="text-xs font-mono font-bold text-rose-600">#load:N</code>
+                            <span class="text-slate-600 text-xs">Numeric workload (shown in Map &amp; Gantt tooltip)</span>
+                        </div>
+                        <div class="grid grid-cols-[180px_1fr] gap-3 px-3 py-2 rounded-lg bg-slate-50 items-start">
+                            <code class="text-xs font-mono font-bold text-rose-600">#start:dd-mm-yyyy</code>
+                            <span class="text-slate-600 text-xs">Gantt bar start date (falls back to first <strong>**date**</strong> in content)</span>
+                        </div>
+                        <div class="grid grid-cols-[180px_1fr] gap-3 px-3 py-2 rounded-lg bg-slate-50 items-start">
+                            <code class="text-xs font-mono font-bold text-rose-600">#due:dd-mm-yyyy</code>
+                            <span class="text-slate-600 text-xs">Deadline shown in Home dashboard &amp; Gantt bar end</span>
+                        </div>
+                        <div class="grid grid-cols-[180px_1fr] gap-3 px-3 py-2 rounded-lg bg-slate-50 items-start">
+                            <code class="text-xs font-mono font-bold text-rose-600">#proj:project-id</code>
+                            <span class="text-slate-600 text-xs">Links to another project — shown in Network &amp; Gantt arrows</span>
+                        </div>
+                        <div class="grid grid-cols-[180px_1fr] gap-3 px-3 py-2 rounded-lg bg-slate-50 items-start">
+                            <code class="text-xs font-mono font-bold text-rose-600">#p1 / #p2 / #p3</code>
+                            <span class="text-slate-600 text-xs">Priority: red / amber / blue left border on Board &amp; Map cards</span>
+                        </div>
+                        <div class="grid grid-cols-[180px_1fr] gap-3 px-3 py-2 rounded-lg bg-slate-50 items-start">
+                            <code class="text-xs font-mono font-bold text-rose-600">#_hidden</code>
+                            <span class="text-slate-600 text-xs">Hides project from all default views (underscore prefix)</span>
+                        </div>
+                        <div class="grid grid-cols-[180px_1fr] gap-3 px-3 py-2 rounded-lg bg-slate-50 items-start">
+                            <code class="text-xs font-mono font-bold text-rose-600">#inbox</code>
+                            <span class="text-slate-600 text-xs">Quick Capture saves notes here; auto-created if missing</span>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Views -->
+                <section>
+                    <h3 class="text-xs font-black uppercase tracking-widest text-slate-400 mb-3">🗂️ Views</h3>
+                    <div class="grid grid-cols-2 gap-2">
+                        <div class="p-3 rounded-lg bg-slate-50">
+                            <div class="font-bold text-slate-800 text-xs mb-1">🏠 Home</div>
+                            <div class="text-xs text-slate-500">Dashboard: active stats, deadlines urgency panel, quick links</div>
+                        </div>
+                        <div class="p-3 rounded-lg bg-slate-50">
+                            <div class="font-bold text-slate-800 text-xs mb-1">📋 Board</div>
+                            <div class="text-xs text-slate-500">Kanban cards, drag to reorder, filter by tag</div>
+                        </div>
+                        <div class="p-3 rounded-lg bg-slate-50">
+                            <div class="font-bold text-slate-800 text-xs mb-1">📊 Overview</div>
+                            <div class="text-xs text-slate-500">Compact table: title, desc, tags, load, size</div>
+                        </div>
+                        <div class="p-3 rounded-lg bg-slate-50">
+                            <div class="font-bold text-slate-800 text-xs mb-1">✅ TODOs</div>
+                            <div class="text-xs text-slate-500">All tasks across projects, live checkboxes</div>
+                        </div>
+                        <div class="p-3 rounded-lg bg-slate-50">
+                            <div class="font-bold text-slate-800 text-xs mb-1">📅 Timeline</div>
+                            <div class="text-xs text-slate-500">Chronological date markers — list or month-grid</div>
+                        </div>
+                        <div class="p-3 rounded-lg bg-slate-50">
+                            <div class="font-bold text-slate-800 text-xs mb-1">🗺️ Map</div>
+                            <div class="text-xs text-slate-500">Portfolio by category, progress bars, status badges</div>
+                        </div>
+                        <div class="p-3 rounded-lg bg-slate-50">
+                            <div class="font-bold text-slate-800 text-xs mb-1">🕸️ Network</div>
+                            <div class="text-xs text-slate-500">SVG graph of <code class="text-rose-600">#proj:</code> dependencies</div>
+                        </div>
+                        <div class="p-3 rounded-lg bg-slate-50">
+                            <div class="font-bold text-slate-800 text-xs mb-1">📊 Gantt</div>
+                            <div class="text-xs text-slate-500">Timeline bars with zoom week/month/quarter, dependency arrows</div>
+                        </div>
+                        <div class="p-3 rounded-lg bg-slate-50">
+                            <div class="font-bold text-slate-800 text-xs mb-1">🗓️ Calendar</div>
+                            <div class="text-xs text-slate-500">Monthly grid of all date markers and milestones</div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Tips -->
+                <section>
+                    <h3 class="text-xs font-black uppercase tracking-widest text-slate-400 mb-3">💡 Tips</h3>
+                    <ul class="space-y-1.5 text-xs text-slate-600">
+                        <li class="flex gap-2"><span class="text-amber-500">▸</span> Click any Gantt bar or Network node to open the full project view.</li>
+                        <li class="flex gap-2"><span class="text-amber-500">▸</span> Press 📅 Date in the editor to insert today's date in the correct format.</li>
+                        <li class="flex gap-2"><span class="text-amber-500">▸</span> Toggle <strong>VIM</strong> in the editor for Vim keybindings (with Dracula theme).</li>
+                        <li class="flex gap-2"><span class="text-amber-500">▸</span> Set <code class="text-rose-600">DB_PATH</code> env var (copy <code>.env.example → .env</code>) to use any Markdown file as your database.</li>
+                        <li class="flex gap-2"><span class="text-amber-500">▸</span> Projects with <code class="text-rose-600">#_hidden</code> are invisible in views but still editable via direct URL or filter.</li>
+                        <li class="flex gap-2"><span class="text-amber-500">▸</span> Gantt auto-detects date range from content if <code class="text-rose-600">#start:</code>/<code class="text-rose-600">#due:</code> are absent.</li>
+                    </ul>
+                </section>
+
+            </div>
+            <!-- Footer -->
+            <div class="px-6 py-3 border-t bg-slate-50 flex justify-between items-center shrink-0">
+                <span class="text-[10px] text-slate-400">ProjectBoard Pro · all data stays local in <code>db/projects.md</code></span>
+                <button onclick="closeHelp()" class="px-4 py-2 btn-accent font-bold rounded-lg text-sm shadow-md">Got it</button>
+            </div>
+        </div>
     </div>
 
     <!-- Quick Capture Panel -->
@@ -1639,13 +1815,29 @@ HTML_TEMPLATE = """
             await loadProjects();
         }
 
+        let helpOpen = false;
+        function openHelp() {
+            helpOpen = true;
+            const m = document.getElementById('help-modal');
+            m.classList.remove('hidden');
+            m.classList.add('flex');
+        }
+        function closeHelp() {
+            helpOpen = false;
+            const m = document.getElementById('help-modal');
+            m.classList.add('hidden');
+            m.classList.remove('flex');
+        }
+
         document.addEventListener('keydown', e => {
             const tag = ((document.activeElement||{}).tagName||'').toUpperCase();
             const editorOpen = !document.getElementById('editor-modal').classList.contains('hidden');
             const presOpen   = !document.getElementById('presentation-modal').classList.contains('hidden');
             const inInput = ['INPUT','TEXTAREA'].includes(tag) || editorOpen || presOpen;
-            if (e.key === 'q' && !inInput && !quickCaptureOpen) { e.preventDefault(); openQuickCapture(); }
+            if (e.key === 'q' && !inInput && !quickCaptureOpen && !helpOpen) { e.preventDefault(); openQuickCapture(); }
+            if ((e.key === '?' || e.key === '/') && !inInput && !quickCaptureOpen && !helpOpen) { e.preventDefault(); openHelp(); }
             if (e.key === 'Escape' && quickCaptureOpen) closeQuickCapture();
+            if (e.key === 'Escape' && helpOpen) closeHelp();
         });
 
         applyDarkMode();
