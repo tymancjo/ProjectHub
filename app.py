@@ -1,5 +1,7 @@
 import os
 import re
+import shutil
+from datetime import datetime
 from flask import Flask, request, jsonify, render_template_string
 from dotenv import load_dotenv
 
@@ -51,8 +53,25 @@ def read_projects():
     return projects
 
 def save_projects_to_file(projects_data):
-    with open(DB_FILE, "w", encoding="utf-8") as f:
-        f.write("\n\n".join(projects_data))
+    # Backup current file before overwriting
+    if os.path.exists(DB_FILE):
+        backup_dir = os.path.join(DB_DIR, "backup")
+        os.makedirs(backup_dir, exist_ok=True)
+        ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+        shutil.copy2(DB_FILE, os.path.join(backup_dir, f"{ts}_projects.md"))
+        # Keep only last 20 backups
+        try:
+            backups = sorted(f for f in os.listdir(backup_dir) if f.endswith("_projects.md"))
+            for old in backups[:-20]:
+                os.remove(os.path.join(backup_dir, old))
+        except OSError:
+            pass
+    # Atomic write: write to .tmp then rename (avoids partial writes on OneDrive/cloud sync)
+    content = "\n\n".join(projects_data)
+    tmp_path = DB_FILE + ".tmp"
+    with open(tmp_path, "w", encoding="utf-8") as f:
+        f.write(content)
+    os.replace(tmp_path, DB_FILE)
 
 HTML_TEMPLATE = """
 <!DOCTYPE html>
@@ -92,7 +111,7 @@ HTML_TEMPLATE = """
         html.dark .bg-white   { background-color: var(--bg-surface) !important; }
         html.dark .bg-slate-50 { background-color: var(--bg-subtle) !important; }
         html.dark .bg-slate-100 { background-color: var(--bg-muted) !important; }
-        html.dark .bg-white\/95 { background-color: rgba(30,41,59,0.97) !important; }
+        html.dark .bg-white\\/95 { background-color: rgba(30,41,59,0.97) !important; }
         html.dark .border-slate-200 { border-color: var(--border) !important; }
         html.dark .border-slate-100 { border-color: var(--border-subtle) !important; }
         html.dark .text-slate-900, html.dark .text-slate-800 { color: var(--text-primary) !important; }
@@ -210,6 +229,9 @@ HTML_TEMPLATE = """
                     class="pl-8 pr-3 py-1.5 text-sm border border-slate-200 rounded-lg bg-slate-50 focus:outline-none focus:border-amber-400 focus:bg-white w-48 transition-all" autocomplete="off">
                 <svg class="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
             </div>
+            <button onclick="openBackups()" class="p-2 rounded-lg border border-slate-200 hover:border-amber-400 transition-all text-slate-400 hover:text-amber-500" title="View &amp; restore backups">
+                <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"/></svg>
+            </button>
             <button onclick="openHelp()" class="p-2 rounded-lg border border-slate-200 hover:border-amber-400 transition-all text-slate-400 hover:text-amber-500" title="Help &amp; syntax reference">
                 <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
             </button>
@@ -485,6 +507,31 @@ Free-form Markdown notes here.
             <div class="px-6 py-3 border-t bg-slate-50 flex justify-between items-center shrink-0">
                 <span class="text-[10px] text-slate-400">ProjectBoard Pro · all data stays local in <code>db/projects.md</code></span>
                 <button onclick="closeHelp()" class="px-4 py-2 btn-accent font-bold rounded-lg text-sm shadow-md">Got it</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Backups Modal -->
+    <div id="backups-modal" class="fixed inset-0 bg-slate-900/80 backdrop-blur-md z-50 hidden flex items-center justify-center p-4" onclick="if(event.target===this)closeBackups()">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-5xl h-[85vh] flex flex-col overflow-hidden">
+            <div class="px-6 py-4 border-b border-slate-200 flex items-center gap-3 shrink-0">
+                <svg class="h-5 w-5 text-amber-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"/></svg>
+                <h2 class="text-base font-black text-slate-900">Backups</h2>
+                <span id="backups-count" class="text-xs text-slate-400 font-mono ml-1"></span>
+                <button onclick="closeBackups()" class="ml-auto p-2 hover:bg-slate-100 rounded-full text-slate-400 transition-colors">
+                    <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                </button>
+            </div>
+            <div class="flex flex-1 overflow-hidden min-h-0">
+                <div id="backups-list" class="w-56 shrink-0 border-r border-slate-200 overflow-y-auto py-2 space-y-0.5 px-2"></div>
+                <div class="flex-1 flex flex-col overflow-hidden min-h-0">
+                    <div id="backups-empty" class="flex-1 flex items-center justify-center text-slate-400 text-sm">Select a backup to preview</div>
+                    <textarea id="backups-preview" class="hidden flex-1 font-mono text-xs p-4 resize-none outline-none bg-slate-50 overflow-y-auto min-h-0" readonly></textarea>
+                    <div id="backups-restore-bar" class="hidden px-4 py-3 border-t border-slate-200 flex items-center justify-between gap-4 shrink-0 bg-white">
+                        <span id="backups-selected-label" class="text-xs text-slate-400 font-mono truncate"></span>
+                        <button onclick="restoreBackup()" class="shrink-0 px-4 py-1.5 bg-amber-500 hover:bg-amber-600 text-white text-sm font-bold rounded-lg transition-colors">↩ Restore this backup</button>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -1790,7 +1837,7 @@ Free-form Markdown notes here.
             quickCaptureOpen = false;
             document.getElementById('quick-capture-panel').classList.remove('open');
             const el = document.getElementById('quick-capture-input');
-            if (el) el.value = '';
+            if (el) { el.value = ''; el.blur(); }
         }
 
         function handleQuickCaptureKey(e) {
@@ -1829,6 +1876,73 @@ Free-form Markdown notes here.
             m.classList.remove('flex');
         }
 
+        // ── Backups ────────────────────────────────────────────────────────────
+        let selectedBackupFile = null;
+
+        async function openBackups() {
+            const m = document.getElementById('backups-modal');
+            m.classList.remove('hidden');
+            m.classList.add('flex');
+            document.getElementById('backups-preview').classList.add('hidden');
+            document.getElementById('backups-empty').classList.remove('hidden');
+            document.getElementById('backups-restore-bar').classList.add('hidden');
+            selectedBackupFile = null;
+            const res = await fetch('/api/backups');
+            const list = await res.json();
+            const container = document.getElementById('backups-list');
+            document.getElementById('backups-count').textContent = list.length + ' backup' + (list.length !== 1 ? 's' : '');
+            container.innerHTML = '';
+            if (list.length === 0) {
+                container.innerHTML = '<p class="text-xs text-slate-400 px-3 py-2">No backups yet.</p>';
+                return;
+            }
+            list.forEach(b => {
+                const btn = document.createElement('button');
+                btn.className = 'w-full text-left px-3 py-2 rounded-lg hover:bg-slate-100 transition-colors text-slate-700';
+                btn.innerHTML = '<span class="block text-xs font-mono font-bold">' + b.label + '</span><span class="block text-[10px] text-slate-400 font-mono">' + (b.size/1024).toFixed(1) + ' KB</span>';
+                btn.dataset.file = b.filename;
+                btn.onclick = () => loadBackupPreview(b.filename, b.label, btn);
+                container.appendChild(btn);
+            });
+        }
+
+        function closeBackups() {
+            const m = document.getElementById('backups-modal');
+            m.classList.add('hidden');
+            m.classList.remove('flex');
+        }
+
+        async function loadBackupPreview(filename, label, btn) {
+            document.querySelectorAll('#backups-list button').forEach(b => b.classList.remove('bg-amber-50','!text-amber-800'));
+            btn.classList.add('bg-amber-50');
+            selectedBackupFile = filename;
+            document.getElementById('backups-selected-label').textContent = label;
+            const res = await fetch('/api/backup/' + encodeURIComponent(filename));
+            const text = await res.text();
+            const ta = document.getElementById('backups-preview');
+            ta.value = text;
+            ta.classList.remove('hidden');
+            document.getElementById('backups-empty').classList.add('hidden');
+            document.getElementById('backups-restore-bar').classList.remove('hidden');
+        }
+
+        async function restoreBackup() {
+            if (!selectedBackupFile) return;
+            if (!confirm('Restore this backup? Current data will be backed up first, then replaced.')) return;
+            const res = await fetch('/api/restore', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({filename: selectedBackupFile})
+            });
+            if (res.ok) {
+                closeBackups();
+                await loadProjects();
+                renderAll();
+            } else {
+                alert('Restore failed.');
+            }
+        }
+
         document.addEventListener('keydown', e => {
             const tag = ((document.activeElement||{}).tagName||'').toUpperCase();
             const editorOpen = !document.getElementById('editor-modal').classList.contains('hidden');
@@ -1838,6 +1952,7 @@ Free-form Markdown notes here.
             if ((e.key === '?' || e.key === '/') && !inInput && !quickCaptureOpen && !helpOpen) { e.preventDefault(); openHelp(); }
             if (e.key === 'Escape' && quickCaptureOpen) closeQuickCapture();
             if (e.key === 'Escape' && helpOpen) closeHelp();
+            if (e.key === 'Escape' && !document.getElementById('backups-modal').classList.contains('hidden')) closeBackups();
         });
 
         applyDarkMode();
@@ -1855,7 +1970,12 @@ def get_projects(): return jsonify(read_projects())
 
 @app.route("/api/save-order", methods=["POST"])
 def save_order():
-    save_projects_to_file(request.json)
+    data = request.json
+    if not data or not isinstance(data, list):
+        return jsonify({"status": "error", "msg": "invalid payload"}), 400
+    if not all(isinstance(s, str) and "## Project:" in s for s in data):
+        return jsonify({"status": "error", "msg": "malformed project data"}), 400
+    save_projects_to_file(data)
     return jsonify({"status": "success"})
 
 @app.route("/api/update-tags", methods=["POST"])
@@ -1905,6 +2025,52 @@ def toggle_todo():
 def view_raw():
     if not os.path.exists(DB_FILE): return "File not found"
     with open(DB_FILE, "r", encoding="utf-8") as f: return f.read(), 200, {'Content-Type': 'text/plain'}
+
+@app.route("/api/backups")
+def list_backups():
+    backup_dir = os.path.join(DB_DIR, "backup")
+    if not os.path.exists(backup_dir):
+        return jsonify([])
+    files = sorted(
+        (f for f in os.listdir(backup_dir) if f.endswith("_projects.md")),
+        reverse=True
+    )
+    result = []
+    for f in files:
+        path = os.path.join(backup_dir, f)
+        size = os.path.getsize(path)
+        try:
+            dt = datetime.strptime(f[:15], "%Y%m%d_%H%M%S")
+            label = dt.strftime("%Y-%m-%d %H:%M:%S")
+        except ValueError:
+            label = f
+        result.append({"filename": f, "label": label, "size": size})
+    return jsonify(result)
+
+@app.route("/api/backup/<filename>")
+def get_backup(filename):
+    if not re.match(r'^\d{8}_\d{6}_projects\.md$', filename):
+        return "invalid filename", 400
+    path = os.path.join(DB_DIR, "backup", filename)
+    if not os.path.exists(path):
+        return "not found", 404
+    with open(path, "r", encoding="utf-8") as f:
+        return f.read(), 200, {'Content-Type': 'text/plain'}
+
+@app.route("/api/restore", methods=["POST"])
+def restore_backup():
+    filename = (request.json or {}).get("filename", "")
+    if not re.match(r'^\d{8}_\d{6}_projects\.md$', filename):
+        return jsonify({"status": "error", "msg": "invalid filename"}), 400
+    path = os.path.join(DB_DIR, "backup", filename)
+    if not os.path.exists(path):
+        return jsonify({"status": "error", "msg": "not found"}), 404
+    with open(path, "r", encoding="utf-8") as f:
+        content = f.read()
+    raw_sections = re.split(r'(?=## Project:)', content)
+    projects_data = [s.strip() for s in raw_sections if s.strip()]
+    save_projects_to_file(projects_data)
+    return jsonify({"status": "success"})
 
 if __name__ == "__main__":
     app.run(debug=True)
