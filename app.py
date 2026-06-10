@@ -220,6 +220,7 @@ HTML_TEMPLATE = """
                 <button id="view-network"  onclick="setViewMode('network')"  class="px-4 py-1.5 rounded-md text-sm font-bold transition-all text-slate-500 hover:text-slate-800">Network</button>
                 <button id="view-gantt"    onclick="setViewMode('gantt')"    class="px-4 py-1.5 rounded-md text-sm font-bold transition-all text-slate-500 hover:text-slate-800">Gantt</button>
                 <button id="view-calendar" onclick="setViewMode('calendar')" class="px-4 py-1.5 rounded-md text-sm font-bold transition-all text-slate-500 hover:text-slate-800">Calendar</button>
+                <button id="view-ideas"    onclick="setViewMode('ideas')"    class="px-4 py-1.5 rounded-md text-sm font-bold transition-all text-slate-500 hover:text-slate-800">Ideas</button>
             </nav>
         </div>
         <div class="flex items-center gap-3">
@@ -278,6 +279,7 @@ HTML_TEMPLATE = """
         <div id="network-view"  class="hidden flex-1 overflow-hidden p-6"></div>
         <div id="gantt-view"    class="hidden flex-1 overflow-hidden p-6"></div>
         <div id="calendar-view" class="hidden flex-1 overflow-y-auto p-8"></div>
+        <div id="ideas-view"    class="hidden flex-1 overflow-y-auto p-8"></div>
     </main>
 
     <!-- Editor Modal -->
@@ -590,7 +592,7 @@ Free-form Markdown notes here.
             document.getElementById('search-input').value = '';
             const filterBound = ['board', 'list'];
             document.getElementById('filter-bar').classList.toggle('hidden', !filterBound.includes(mode));
-            ['home','board','list','todos','timeline','map','network','gantt','calendar'].forEach(v => {
+            ['home','board','list','todos','timeline','map','network','gantt','calendar','ideas'].forEach(v => {
                 const btn = document.getElementById('view-' + v);
                 const el  = document.getElementById(v === 'board' ? 'board' : v + '-view');
                 if (btn) btn.className = (mode === v)
@@ -796,6 +798,69 @@ Free-form Markdown notes here.
             }
             html += `</div>`;
             document.getElementById('todos-view').innerHTML = html;
+        }
+
+        // ── Ideas Bank view ───────────────────────────────────────────────────
+        function parseIdeas() {
+            return projects.map((proj, pi) => {
+                const lines = proj.content.split('\\n');
+                const items = [];
+                lines.forEach((line, i) => {
+                    if (/\\*\\*idea\\*\\*/i.test(line)) {
+                        const name = line.replace(/\\*\\*idea\\*\\*/i, '').replace(/[*#>`_]/g, '').trim();
+                        let quote = '';
+                        for (let j = i + 1; j < lines.length; j++) {
+                            const l = lines[j].trim();
+                            if (!l) break;
+                            quote += (quote ? ' ' : '') + l;
+                            if (quote.length > 160) break;
+                        }
+                        items.push({ lineIndex: i, name, quote: quote.slice(0, 160) });
+                    }
+                });
+                return { proj, pi, items };
+            }).filter(g => g.items.length > 0);
+        }
+
+        function renderIdeas() {
+            const groups = parseIdeas();
+            let total = 0;
+            groups.forEach(g => total += g.items.length);
+
+            let html = `<div class="max-w-3xl mx-auto">
+                <div class="flex items-center gap-3 mb-8">
+                    <h2 class="text-2xl font-black text-slate-900">Ideas Bank</h2>
+                    <span class="px-3 py-1 bg-violet-50 text-violet-700 text-sm font-bold rounded-full">${total} idea${total !== 1 ? 's' : ''}</span>
+                </div>`;
+
+            if (!groups.length) {
+                html += `<p class="text-slate-400 text-center mt-16 text-sm">No ideas found. Mark any line with <code class="bg-slate-100 px-1.5 py-0.5 rounded">**idea**</code> in a project.</p>`;
+            } else {
+                groups.forEach(({ proj, pi, items }) => {
+                    const col = COLORS[pi % COLORS.length];
+                    html += `<div class="bg-white rounded-2xl shadow-sm border border-slate-200 mb-6 overflow-hidden">
+                        <div class="px-6 py-4 border-b border-slate-100 flex items-center gap-3" style="border-left:3px solid ${col}">
+                            <button onclick="openModal('${proj.id}')" class="text-base font-bold text-slate-900 hover:text-violet-600 transition-colors">${proj.title}</button>
+                            <span class="text-xs font-mono text-slate-400">${items.length} idea${items.length !== 1 ? 's' : ''}</span>
+                        </div>
+                        <div class="divide-y divide-slate-50">`;
+                    items.forEach(({ name, quote }) => {
+                        const nameHtml = name
+                            ? `<span class="text-sm font-semibold text-slate-800">${name}</span>`
+                            : `<span class="text-sm font-semibold text-slate-400 italic">untitled idea</span>`;
+                        const quoteHtml = quote
+                            ? `<span class="text-xs text-slate-500 italic">${quote}${quote.length >= 160 ? '…' : ''}</span>`
+                            : '';
+                        html += `<div class="flex items-start gap-4 px-6 py-3">
+                            <span class="mt-0.5 text-violet-400 flex-shrink-0">💡</span>
+                            <div class="flex flex-col gap-0.5">${nameHtml}${quoteHtml}</div>
+                        </div>`;
+                    });
+                    html += `</div></div>`;
+                });
+            }
+            html += `</div>`;
+            document.getElementById('ideas-view').innerHTML = html;
         }
 
         async function toggleTodo(projectId, lineIndex) {
@@ -1478,7 +1543,7 @@ Free-form Markdown notes here.
             const svEl = document.getElementById('search-view');
             if (searchQuery.trim()) {
                 document.getElementById('filter-bar').classList.add('hidden');
-                ['board','list-view','todos-view','timeline-view','map-view','network-view','gantt-view','calendar-view'].forEach(id => { const el = document.getElementById(id); if (el) el.classList.add('hidden'); });
+                ['board','list-view','todos-view','timeline-view','map-view','network-view','gantt-view','calendar-view','ideas-view'].forEach(id => { const el = document.getElementById(id); if (el) el.classList.add('hidden'); });
                 svEl.classList.remove('hidden');
                 renderSearch();
                 return;
@@ -1530,6 +1595,7 @@ Free-form Markdown notes here.
             else if (viewMode === 'network')  renderNetwork();
             else if (viewMode === 'gantt')    renderGantt();
             else if (viewMode === 'calendar') renderCalendar();
+            else if (viewMode === 'ideas')    renderIdeas();
         }
 
         function renderBoard(items) {
@@ -1948,6 +2014,7 @@ Free-form Markdown notes here.
             const editorOpen = !document.getElementById('editor-modal').classList.contains('hidden');
             const presOpen   = !document.getElementById('presentation-modal').classList.contains('hidden');
             const inInput = ['INPUT','TEXTAREA'].includes(tag) || editorOpen || presOpen;
+            if (e.key === 'i' && !inInput && !quickCaptureOpen && !helpOpen) { e.preventDefault(); setViewMode('ideas'); }
             if (e.key === 'q' && !inInput && !quickCaptureOpen && !helpOpen) { e.preventDefault(); openQuickCapture(); }
             if ((e.key === '?' || e.key === '/') && !inInput && !quickCaptureOpen && !helpOpen) { e.preventDefault(); openHelp(); }
             if (e.key === 'Escape' && quickCaptureOpen) closeQuickCapture();
