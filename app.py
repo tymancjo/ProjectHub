@@ -1,77 +1,9 @@
 import os
 import re
-import shutil
-from datetime import datetime
 from flask import Flask, request, jsonify, render_template_string
-from dotenv import load_dotenv
-
-load_dotenv()
+from db import read_projects, save_projects_to_file, DB_FILE, DB_DIR
 
 app = Flask(__name__)
-DB_FILE = os.getenv("DB_PATH", os.path.join("db", "projects.md"))
-DB_DIR  = os.path.dirname(os.path.abspath(DB_FILE))
-
-if not os.path.exists(DB_DIR):
-    os.makedirs(DB_DIR)
-
-INITIAL_CONTENT = """## Project: Getting Started
-**Short Desc:** Welcome to your new project board.
----
-#tutorial #setup
-Welcome! You can edit this text directly. Any word starting with a hash becomes a tag automatically.
-
-## Project: Future Ideas
-**Short Desc:** Things to build later.
----
-#backlog #ideas #cat:engineering
-### UI Roadmap
-TODO: [ ] Add a calendar view
-TODO: [ ] Integration with Jira/GitHub
-TODO: [x] Dark mode toggle
-
-**14-05-2026** initial roadmap written
-
-#### Technical Debt
-- Refactor the CSS into a separate file.
-"""
-
-def read_projects():
-    if not os.path.exists(DB_FILE):
-        with open(DB_FILE, "w", encoding="utf-8") as f:
-            f.write(INITIAL_CONTENT)
-    with open(DB_FILE, "r", encoding="utf-8") as f:
-        content = f.read()
-    raw_sections = re.split(r'(?=## Project:)', content)
-    projects = []
-    for section in raw_sections:
-        if not section.strip():
-            continue
-        lines = section.strip().split('\n')
-        title = lines[0].replace('## Project:', '').strip()
-        clean_id = re.sub(r'[^a-zA-Z0-9]', '-', title.lower())
-        projects.append({"id": clean_id, "title": title, "content": section.strip()})
-    return projects
-
-def save_projects_to_file(projects_data):
-    # Backup current file before overwriting
-    if os.path.exists(DB_FILE):
-        backup_dir = os.path.join(DB_DIR, "backup")
-        os.makedirs(backup_dir, exist_ok=True)
-        ts = datetime.now().strftime("%Y%m%d_%H%M%S")
-        shutil.copy2(DB_FILE, os.path.join(backup_dir, f"{ts}_projects.md"))
-        # Keep only last 20 backups
-        try:
-            backups = sorted(f for f in os.listdir(backup_dir) if f.endswith("_projects.md"))
-            for old in backups[:-20]:
-                os.remove(os.path.join(backup_dir, old))
-        except OSError:
-            pass
-    # Atomic write: write to .tmp then rename (avoids partial writes on OneDrive/cloud sync)
-    content = "\n\n".join(projects_data)
-    tmp_path = DB_FILE + ".tmp"
-    with open(tmp_path, "w", encoding="utf-8") as f:
-        f.write(content)
-    os.replace(tmp_path, DB_FILE)
 
 HTML_TEMPLATE = """
 <!DOCTYPE html>
@@ -2140,4 +2072,4 @@ def restore_backup():
     return jsonify({"status": "success"})
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run(debug=os.getenv("FLASK_DEBUG", "1") != "0")
