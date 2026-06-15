@@ -1,5 +1,6 @@
 import os
 import re
+from datetime import datetime
 from flask import Flask, request, jsonify, render_template_string
 from db import read_projects, save_projects_to_file, DB_FILE, DB_DIR
 
@@ -15,6 +16,7 @@ HTML_TEMPLATE = """
     <script>tailwind.config={darkMode:'class'}</script>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/4.3.0/marked.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.0/Sortable.min.js"></script>
     <link  rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.17/codemirror.min.css">
     <link  rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.17/theme/dracula.min.css">
@@ -485,6 +487,17 @@ Free-form Markdown notes here.
     </div>
 
     <script>
+        mermaid.initialize({ startOnLoad: false, theme: 'default' });
+        function _mermaidInit() { mermaid.initialize({ startOnLoad: false, theme: darkMode ? 'dark' : 'default' }); }
+
+        const _mermaidRenderer = new marked.Renderer();
+        const _origCodeRenderer = _mermaidRenderer.code.bind(_mermaidRenderer);
+        _mermaidRenderer.code = function(code, lang) {
+            if (lang === 'mermaid') return `<div class="mermaid">${code}</div>`;
+            return _origCodeRenderer(code, lang);
+        };
+        marked.setOptions({ renderer: _mermaidRenderer });
+
         let projects = [];
         let currentEditingId = null;
         let viewMode = 'home';
@@ -508,6 +521,7 @@ Free-form Markdown notes here.
             document.documentElement.classList.toggle('dark', darkMode);
             document.getElementById('dark-icon-moon').classList.toggle('hidden',  darkMode);
             document.getElementById('dark-icon-sun').classList.toggle('hidden',  !darkMode);
+            if (typeof _mermaidInit !== 'undefined') _mermaidInit();
         }
         function toggleDarkMode() { darkMode = !darkMode; localStorage.setItem('darkMode', darkMode); applyDarkMode(); }
 
@@ -607,7 +621,9 @@ Free-form Markdown notes here.
             const proj = projects.find(p => p.id === id);
             const body = proj.content.split('---').slice(-1)[0].trim();
             document.getElementById('pres-title').innerText = proj.title;
-            document.getElementById('presentation-content').innerHTML = marked.parse(body);
+            const presContent = document.getElementById('presentation-content');
+            presContent.innerHTML = marked.parse(body);
+            _mermaidInit(); mermaid.run({ nodes: presContent.querySelectorAll('.mermaid') });
             document.getElementById('pres-edit-btn').onclick = () => { closePresentation(); openModal(id); };
             document.getElementById('presentation-modal').classList.remove('hidden');
             presentationFontSize = 18; updateFontSizeDisplay();
@@ -1556,9 +1572,10 @@ Free-form Markdown notes here.
                         <div class="text-xs text-slate-500 italic mb-3">${marked.parseInline(desc)}</div>
                         <div class="flex flex-wrap">${tags.map(t=>`<span class="${t.startsWith('_')?'bg-slate-100 text-slate-400 border border-slate-200':'bg-amber-50 text-amber-700'}" style="padding:2px 8px;border-radius:12px;font-size:10px;font-weight:700;text-transform:uppercase;margin-right:4px;margin-bottom:4px;">#${t}</span>`).join('')}</div>
                     </div>
-                    <div class="p-6 overflow-y-auto flex-1 markdown-content bg-slate-50/20">${marked.parse(body)}</div>`;
+                    <div class="p-6 overflow-y-auto flex-1 markdown-content bg-slate-50/20" data-needs-mermaid="1">${marked.parse(body)}</div>`;
                 container.appendChild(col);
             });
+            _mermaidInit(); mermaid.run({ nodes: container.querySelectorAll('.mermaid') });
             new Sortable(container, { animation:150, handle:'.handle', onEnd: async () => {
                 const newVisibleIds      = Array.from(container.querySelectorAll('.project-column')).map(el => el.getAttribute('data-id'));
                 const newVisibleProjects = newVisibleIds.map(id => projects.find(p => p.id === id));
