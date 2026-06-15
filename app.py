@@ -263,6 +263,9 @@ HTML_TEMPLATE = """
                 </div>
             </div>
             <div class="flex items-center gap-1">
+                <button id="pres-split-btn" class="p-2 hover:bg-slate-100 rounded-full text-slate-400 hover:text-violet-500 transition-colors" title="Split view — edit &amp; preview side by side">
+                    <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 3H4a1 1 0 00-1 1v16a1 1 0 001 1h5M9 3h11a1 1 0 011 1v16a1 1 0 01-1 1H9M9 3v18"/></svg>
+                </button>
                 <button id="pres-edit-btn" class="p-2 hover:bg-slate-100 rounded-full text-slate-400 hover:text-amber-500 transition-colors" title="Edit project">
                     <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
                 </button>
@@ -272,6 +275,40 @@ HTML_TEMPLATE = """
             </div>
         </header>
         <main class="flex-1 overflow-y-auto p-12"><div id="presentation-content" class="presentation-card markdown-content"></div></main>
+    </div>
+
+    <!-- Split Editor Modal -->
+    <div id="split-modal" class="fixed inset-0 z-50 hidden flex flex-col bg-white">
+        <div class="px-6 py-3 border-b flex justify-between items-center bg-white shrink-0">
+            <div>
+                <h3 id="split-title" class="text-lg font-bold">Edit Project</h3>
+                <p class="text-xs text-slate-400">Markdown · <code>#tags</code> · <code>TODO: [ ] task</code> · <code>#cat:name</code> · <code>#proj:id</code> · <code>#load:N</code></p>
+            </div>
+            <div class="flex items-center gap-2">
+                <button onclick="insertDateAtCursor()" class="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 rounded-lg text-xs font-bold border">📅 Date</button>
+                <button id="split-vim-toggle" onclick="toggleVimMode()" class="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 rounded-lg text-xs font-bold border">VIM</button>
+                <button onclick="closeSplitEditor()" class="p-2 hover:bg-slate-100 rounded-full text-slate-400">
+                    <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                </button>
+            </div>
+        </div>
+        <div class="flex flex-1 overflow-hidden">
+            <div class="w-1/2 flex flex-col border-r">
+                <div id="split-cm-wrapper" class="flex-1 overflow-hidden"></div>
+                <div class="px-4 py-2 border-t bg-slate-50 flex justify-between items-center gap-3">
+                    <span id="split-vim-indicator" class="text-[10px] font-mono font-black px-2 py-1 rounded bg-slate-200 text-slate-500" style="display:none">NORMAL</span>
+                    <div class="flex gap-3 ml-auto">
+                        <button onclick="closeSplitEditor()" class="px-4 py-2 font-semibold text-slate-600">Close</button>
+                        <button onclick="saveSplitEditor()" class="px-8 py-2 btn-accent font-bold rounded-lg shadow-md">Save</button>
+                    </div>
+                </div>
+            </div>
+            <div class="w-1/2 flex flex-col">
+                <div id="split-preview-scroll" class="flex-1 overflow-y-auto p-8">
+                    <div id="split-preview-content" class="presentation-card markdown-content"></div>
+                </div>
+            </div>
+        </div>
     </div>
 
     <!-- Help Modal -->
@@ -508,6 +545,8 @@ Free-form Markdown notes here.
         let searchQuery = '';
         let mapLoadMode = 'project';
         let cmEditor = null;
+        let cmSplitEditor = null;
+        let currentSplitId = null;
         let vimEnabled = localStorage.getItem('vimMode') === 'true';
         let ganttZoom = localStorage.getItem('ganttZoom') || 'month';
         let calendarYear = new Date().getFullYear();
@@ -596,8 +635,10 @@ Free-form Markdown notes here.
             vimEnabled = !vimEnabled;
             localStorage.setItem('vimMode', vimEnabled);
             if (cmEditor) cmEditor.setOption('keyMap', vimEnabled ? 'vim' : 'default');
+            if (cmSplitEditor) cmSplitEditor.setOption('keyMap', vimEnabled ? 'vim' : 'default');
             updateVimToggle();
             updateVimIndicator(vimEnabled ? 'normal' : 'insert');
+            updateSplitVimIndicator(vimEnabled ? 'normal' : 'insert');
         }
 
         function updateVimToggle() {
@@ -625,6 +666,7 @@ Free-form Markdown notes here.
             presContent.innerHTML = marked.parse(body);
             _mermaidInit(); mermaid.run({ nodes: presContent.querySelectorAll('.mermaid') });
             document.getElementById('pres-edit-btn').onclick = () => { closePresentation(); openModal(id); };
+            document.getElementById('pres-split-btn').onclick = () => { closePresentation(); openSplitEditor(id); };
             document.getElementById('presentation-modal').classList.remove('hidden');
             presentationFontSize = 18; updateFontSizeDisplay();
         }
@@ -640,10 +682,11 @@ Free-form Markdown notes here.
         }
 
         function insertDateAtCursor() {
-            if (!cmEditor) return;
+            const ed = cmEditor || cmSplitEditor;
+            if (!ed) return;
             const ds = `**${new Date().toLocaleDateString('en-GB').replace(/\\//g, '-')}**`;
-            cmEditor.replaceRange(ds, cmEditor.getCursor());
-            cmEditor.focus();
+            ed.replaceRange(ds, ed.getCursor());
+            ed.focus();
         }
 
         async function saveProjectUpdate() {
@@ -652,6 +695,78 @@ Free-form Markdown notes here.
             await fetch('/api/save-order', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(projects.map(p => p.content)) });
             closeModal();
             loadProjects();
+        }
+
+        function openSplitEditor(id) {
+            currentSplitId = id;
+            const proj = projects.find(p => p.id === id);
+            document.getElementById('split-title').innerText = proj.title;
+            document.getElementById('split-modal').classList.remove('hidden');
+
+            const wrapper = document.getElementById('split-cm-wrapper');
+            wrapper.innerHTML = '';
+            cmSplitEditor = CodeMirror(wrapper, {
+                value: proj.content,
+                mode: 'markdown',
+                theme: 'dracula',
+                lineWrapping: true,
+                keyMap: vimEnabled ? 'vim' : 'default',
+                autofocus: true,
+                extraKeys: { Tab: false },
+            });
+            cmSplitEditor.setSize('100%', '100%');
+            cmSplitEditor.on('vim-mode-change', info => updateSplitVimIndicator(info.mode));
+            updateSplitVimToggle();
+            updateSplitVimIndicator(vimEnabled ? 'normal' : 'insert');
+            _renderSplitPreview();
+        }
+
+        function closeSplitEditor() {
+            document.getElementById('split-modal').classList.add('hidden');
+            cmSplitEditor = null;
+            currentSplitId = null;
+        }
+
+        async function saveSplitEditor() {
+            if (!cmSplitEditor || currentSplitId === null) return;
+            const idx = projects.findIndex(p => p.id === currentSplitId);
+            if (idx !== -1) projects[idx].content = cmSplitEditor.getValue();
+            await fetch('/api/save-order', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(projects.map(p => p.content))
+            });
+            const scrollEl = document.getElementById('split-preview-scroll');
+            const savedScroll = scrollEl.scrollTop;
+            _renderSplitPreview();
+            scrollEl.scrollTop = savedScroll;
+        }
+
+        function _renderSplitPreview() {
+            if (!currentSplitId) return;
+            const content = cmSplitEditor ? cmSplitEditor.getValue() : projects.find(p => p.id === currentSplitId).content;
+            const body = content.split('---').slice(-1)[0].trim();
+            const el = document.getElementById('split-preview-content');
+            el.innerHTML = marked.parse(body);
+            _mermaidInit(); mermaid.run({ nodes: el.querySelectorAll('.mermaid') });
+        }
+
+        function updateSplitVimIndicator(mode) {
+            const el = document.getElementById('split-vim-indicator');
+            if (!el) return;
+            el.style.display = vimEnabled ? 'inline-block' : 'none';
+            if (!vimEnabled) return;
+            el.textContent = mode.toUpperCase();
+            const cls = { insert: 'bg-amber-100 text-amber-700', normal: 'bg-slate-200 text-slate-600', visual: 'bg-purple-100 text-purple-700', replace: 'bg-red-100 text-red-600' };
+            el.className = `text-[10px] font-mono font-black px-2 py-1 rounded ${cls[mode] || cls.normal}`;
+        }
+
+        function updateSplitVimToggle() {
+            const btn = document.getElementById('split-vim-toggle');
+            if (!btn) return;
+            btn.className = vimEnabled
+                ? 'px-3 py-1.5 rounded-lg text-xs font-bold border btn-accent'
+                : 'px-3 py-1.5 bg-slate-100 hover:bg-slate-200 rounded-lg text-xs font-bold border text-slate-500';
         }
 
         function toggleProjLinkDropdown() {
@@ -879,6 +994,7 @@ Free-form Markdown notes here.
                             <button onclick="openPresentation('${proj.id}')" class="font-bold text-slate-900 hover:text-amber-600 transition-colors">${escHtml(proj.title)}</button>
                             <div class="flex items-center gap-3">
                                 <span class="text-xs text-slate-400">${hits.length} match${hits.length!==1?'es':''}</span>
+                                <button onclick="openSplitEditor('${proj.id}')" class="text-xs font-bold px-2 py-1 rounded bg-violet-50 text-violet-700 hover:bg-violet-100 transition-colors">Split</button>
                                 <button onclick="openModal('${proj.id}')" class="text-xs font-bold px-2 py-1 rounded bg-amber-50 text-amber-700 hover:bg-amber-100 transition-colors">Edit</button>
                             </div>
                         </div>
@@ -1565,6 +1681,7 @@ Free-form Markdown notes here.
                             <h2 class="text-lg font-bold pr-12">${proj.title}</h2>
                             <div class="flex gap-1">
                                 <button onclick="openPresentation('${proj.id}')" class="p-1 text-slate-300 hover:text-emerald-600" title="Presentation"><svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg></button>
+                                <button onclick="openSplitEditor('${proj.id}')"  class="p-1 text-slate-300 hover:text-violet-500" title="Split view"><svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 3H4a1 1 0 00-1 1v16a1 1 0 001 1h5M9 3h11a1 1 0 011 1v16a1 1 0 01-1 1H9M9 3v18"/></svg></button>
                                 <button onclick="openModal('${proj.id}')"        class="p-1 text-slate-300 hover:text-amber-500"  title="Edit"><svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg></button>
                                 <div class="p-1 cursor-move text-slate-200 hover:text-slate-400 handle"><svg class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M7 2a2 2 0 11.001 4.001A2 2 0 017 2zm0 6a2 2 0 11.001 4.001A2 2 0 017 8zm0 6a2 2 0 11.001 4.001A2 2 0 017 14zm6-12a2 2 0 11.001 4.001A2 2 0 0113 2zm0 6a2 2 0 11.001 4.001A2 2 0 0113 8zm0 6a2 2 0 11.001 4.001A2 2 0 0113 14z"/></svg></div>
                             </div>
