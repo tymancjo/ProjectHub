@@ -70,6 +70,10 @@ HTML_TEMPLATE = """
         .markdown-content code { background-color: var(--bg-muted); padding: 0.2em 0.4em; border-radius: 4px; color: #be185d; font-family: monospace; font-size: 0.9em; }
         .markdown-content pre { background-color: #1e293b; color: #f1f5f9; padding: 1rem; border-radius: 8px; overflow-x: auto; margin-bottom: 1em; font-size: 0.8em; }
         #board .markdown-content { font-size: 0.875rem; }
+        .markdown-content table { border-collapse: collapse; width: 100%; margin: 0.75rem 0; }
+        .markdown-content th, .markdown-content td { border: 1px solid var(--border); padding: 0.4rem 0.75rem; text-align: left; font-size: 0.9em; }
+        .markdown-content th { background: var(--bg-muted); font-weight: 600; color: var(--text-primary); }
+        .markdown-content tr:nth-child(even) td { background: var(--bg-muted); }
 
         .sortable-ghost { opacity: 0.4; border: 2px dashed #f7b705; }
 
@@ -660,7 +664,7 @@ Free-form Markdown notes here.
 
         function openPresentation(id) {
             const proj = projects.find(p => p.id === id);
-            const body = proj.content.split('---').slice(-1)[0].trim();
+            const body = proj.content.split(/\\n---\\n/).slice(1).join('\\n---\\n').trim();
             document.getElementById('pres-title').innerText = proj.title;
             const presContent = document.getElementById('presentation-content');
             presContent.innerHTML = marked.parse(body);
@@ -745,7 +749,7 @@ Free-form Markdown notes here.
         function _renderSplitPreview() {
             if (!currentSplitId) return;
             const content = cmSplitEditor ? cmSplitEditor.getValue() : projects.find(p => p.id === currentSplitId).content;
-            const body = content.split('---').slice(-1)[0].trim();
+            const body = content.split(/\\n---\\n/).slice(1).join('\\n---\\n').trim();
             const el = document.getElementById('split-preview-content');
             el.innerHTML = marked.parse(body);
             _mermaidInit(); mermaid.run({ nodes: el.querySelectorAll('.mermaid') });
@@ -1233,7 +1237,7 @@ Free-form Markdown notes here.
                     return new Date(+yyyy, +mm-1, +dd).getTime();
                 });
                 const latestDate = dateMs.length ? new Date(Math.max(...dateMs)) : null;
-                const rawDesc  = (proj.content.split('---')[0] || '').split('\\n').slice(1).join(' ')
+                const rawDesc  = (proj.content.split(/\\n---\\n/)[0] || '').split('\\n').slice(1).join(' ')
                     .replace(/\\*\\*Short Desc:\\*\\*/gi,'').replace(/\\*\\*/g,'').trim();
                 return { ...proj, cats: cats.length ? cats : ['—'], plainTags, todoDone, todoTotal: todos.length, latestDate, status: statusStyle(plainTags), desc: rawDesc };
             });
@@ -1666,10 +1670,10 @@ Free-form Markdown notes here.
             const container = document.getElementById('board');
             container.innerHTML = '';
             items.forEach(proj => {
-                const parts    = proj.content.split('---');
+                const parts    = proj.content.split(/\\n---\\n/);
                 const descLines = parts[0].split('\\n');
                 const desc     = descLines.length > 1 ? descLines.slice(1).join('\\n').trim() : '';
-                const body     = parts.slice(1).join('---').trim();
+                const body     = parts.slice(1).join('\\n---\\n').trim();
                 const tags     = [...proj.content.matchAll(/#(\\w+)/g)].map(m => m[1]);
                 const priorityCls = tags.includes('p1') ? ' priority-p1' : tags.includes('p2') ? ' priority-p2' : tags.includes('p3') ? ' priority-p3' : '';
                 const col = document.createElement('div');
@@ -1707,7 +1711,7 @@ Free-form Markdown notes here.
             const body = document.getElementById('list-body');
             body.innerHTML = '';
             items.forEach(proj => {
-                const descParts = proj.content.split('---')[0].split('\\n');
+                const descParts = proj.content.split(/\\n---\\n/)[0].split('\\n');
                 const desc  = descParts.length > 1 ? descParts.slice(1).join('\\n').trim() : '';
                 const tags  = [...proj.content.matchAll(/#(\\w+)/g)].map(m => m[1]);
                 const chars = proj.content.replace(/\\s/g,'').length;
@@ -1758,7 +1762,7 @@ Free-form Markdown notes here.
             const allTags  = [...proj.content.matchAll(/#([a-zA-Z][\\w:]*)/g)].map(m=>m[1]);
             const cats     = allTags.filter(t=>t.startsWith('cat:')).map(t=>t.slice(4));
             const plainTags = allTags.filter(t=>!t.startsWith('cat:')&&!t.startsWith('proj:')&&!t.startsWith('load:')&&!t.startsWith('_'));
-            const rawDesc  = (proj.content.split('---')[0]||'').split('\\n').slice(1).join(' ')
+            const rawDesc  = (proj.content.split(/\\n---\\n/)[0]||'').split('\\n').slice(1).join(' ')
                 .replace(/\\*\\*Short Desc:\\*\\*/gi,'').replace(/\\*\\*/g,'').trim();
             return { ...proj, start, end, milestones, cats: cats.length?cats:['—'], plainTags, todoDone, todoTotal: todos.length, desc: rawDesc, status: statusStyle(plainTags) };
         }
