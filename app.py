@@ -2202,6 +2202,9 @@ Right column content
         }
 
         // ── Calendar view ─────────────────────────────────────────────────────
+        function escHtml(s) {
+            return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+        }
         function renderCalendar() {
             const allEvents = parseDates();
             const year=calendarYear, month=calendarMonth;
@@ -2244,7 +2247,7 @@ Right column content
                     <div class="text-xs font-bold mb-1 ${isToday?'text-amber-600':'text-slate-400'}">${d}${isToday?' ★':''}</div>`;
                 evts.forEach(e => {
                     const msIcon = e.isMilestone ? '◆ ' : '';
-                    calHtml += `<div class="cal-event" style="background:${e.color}22;color:${e.color};border:1px solid ${e.color}44" onclick="openPresentation('${e.projectId}')" title="${e.context||e.projectTitle}">${msIcon}${(e.context||e.projectTitle).substring(0,20)}</div>`;
+                    calHtml += `<div class="cal-event" style="background:${e.color}22;color:${e.color};border:1px solid ${e.color}44" onclick="openPresentation('${escHtml(e.projectId)}')" title="${escHtml(e.context||e.projectTitle)}">${msIcon}${escHtml((e.context||e.projectTitle).substring(0,20))}</div>`;
                 });
                 calHtml += `</div>`;
             }
