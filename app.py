@@ -93,6 +93,21 @@ HTML_TEMPLATE = """
 
         #presentation-content { transition: font-size 0.2s ease; line-height: 1.6; }
         .presentation-card { max-width: 850px; width: 90%; margin: 0 auto; }
+
+        /* Slideshow */
+        .ss-slide-card { transition: opacity 0.2s ease; font-size: 1.2rem; line-height: 1.7; }
+        .ss-slide-card.ss-transitioning { opacity: 0; }
+        .ss-dot { width:8px; height:8px; border-radius:50%; background:rgba(255,255,255,.25); cursor:pointer; transition:background .2s,transform .2s; border:none; padding:0; }
+        .ss-dot.active { background:#f7b705; transform:scale(1.35); }
+        .ss-dot:hover:not(.active) { background:rgba(255,255,255,.5); }
+        .ss-cols { display:grid; gap:1.5rem; width:100%; align-items:start; }
+        .ss-cols-2 { grid-template-columns:repeat(2,1fr); }
+        .ss-cols-3 { grid-template-columns:repeat(3,1fr); }
+        .ss-cols-4 { grid-template-columns:repeat(4,1fr); }
+        .ss-col { min-width:0; }
+        .ss-centered { display:flex; flex-direction:column; align-items:center; text-align:center; }
+        .ss-centered img { max-width:100%; }
+
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 
@@ -267,6 +282,9 @@ HTML_TEMPLATE = """
                 </div>
             </div>
             <div class="flex items-center gap-1">
+                <button id="pres-slideshow-btn" class="hidden p-2 hover:bg-slate-100 rounded-full text-slate-400 hover:text-amber-500 transition-colors" title="Slideshow — slide by slide (⬅ ➡)">
+                    <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 4v16M17 4v16M3 8h4m10 0h4M3 16h4m10 0h4M4 20h16a1 1 0 001-1V5a1 1 0 00-1-1H4a1 1 0 00-1 1v14a1 1 0 001 1z"/></svg>
+                </button>
                 <button id="pres-split-btn" class="p-2 hover:bg-slate-100 rounded-full text-slate-400 hover:text-violet-500 transition-colors" title="Split view — edit &amp; preview side by side">
                     <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 3H4a1 1 0 00-1 1v16a1 1 0 001 1h5M9 3h11a1 1 0 011 1v16a1 1 0 01-1 1H9M9 3v18"/></svg>
                 </button>
@@ -279,6 +297,54 @@ HTML_TEMPLATE = """
             </div>
         </header>
         <main class="flex-1 overflow-y-auto p-12"><div id="presentation-content" class="presentation-card markdown-content"></div></main>
+    </div>
+
+    <!-- Slideshow Modal -->
+    <div id="slideshow-modal" class="fixed inset-0 z-[60] hidden flex-col bg-black/90 backdrop-blur-xl">
+        <div id="ss-progress-track" class="w-full h-1 bg-white/10 shrink-0">
+            <div id="ss-progress-fill" class="h-full bg-amber-400 transition-all duration-300" style="width:0%"></div>
+        </div>
+        <header class="px-6 py-3 flex items-center justify-between shrink-0 border-b border-white/10">
+            <div class="flex items-center gap-4 min-w-0">
+                <span id="ss-project-title" class="text-sm font-black text-white/50 truncate"></span>
+                <span class="text-white/20">·</span>
+                <span id="ss-slide-title" class="text-sm font-semibold text-white/70 truncate"></span>
+            </div>
+            <div class="flex items-center gap-3 shrink-0">
+                <span id="ss-counter" class="text-xs font-mono text-white/40">1 / 1</span>
+                <button onclick="closeSlideshow()" class="p-2 hover:bg-white/10 rounded-full text-white/40 hover:text-white transition-colors" title="Close (Esc)">
+                    <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                </button>
+            </div>
+        </header>
+        <main class="flex-1 overflow-y-auto flex items-center justify-center py-6 px-4">
+            <div id="ss-content" class="ss-slide-card markdown-content w-full max-w-[960px] bg-white rounded-2xl shadow-2xl p-12 min-h-[calc(100vh-200px)]"></div>
+        </main>
+        <footer class="px-8 py-4 flex items-center justify-center gap-6 shrink-0 border-t border-white/10">
+            <button onclick="prevSlide()" id="ss-prev-btn"
+                class="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white font-bold transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+                title="Previous (←)">
+                <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+                Prev
+            </button>
+            <div id="ss-dots" class="flex items-center gap-2"></div>
+            <button onclick="nextSlide()" id="ss-next-btn"
+                class="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white font-bold transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+                title="Next (→)">
+                Next
+                <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+            </button>
+        </footer>
+    </div>
+
+    <!-- Deck Picker -->
+    <div id="ss-deck-picker" class="hidden fixed inset-0 z-[61] items-center justify-center bg-black/80 backdrop-blur-sm">
+        <div class="bg-white rounded-2xl shadow-2xl p-8 w-80 max-w-[90vw]">
+            <h3 class="text-lg font-black text-slate-800 mb-1">Choose a deck</h3>
+            <p id="ss-picker-project" class="text-xs text-slate-400 mb-5"></p>
+            <div id="ss-picker-list" class="flex flex-col gap-2"></div>
+            <button onclick="closeDeckPicker()" class="mt-5 w-full py-2 rounded-xl border border-slate-200 text-slate-400 text-sm hover:bg-slate-50 transition-colors">Cancel</button>
+        </div>
     </div>
 
     <!-- Split Editor Modal -->
@@ -356,6 +422,17 @@ HTML_TEMPLATE = """
                             <kbd class="px-2 py-1 rounded bg-white border border-slate-200 text-xs font-mono font-bold shadow-sm">Enter</kbd>
                             <span class="text-slate-600">Save quick capture</span>
                         </div>
+                        <div class="flex items-center gap-3 p-2 rounded-lg bg-slate-50">
+                            <kbd class="px-2 py-1 rounded bg-white border border-slate-200 text-xs font-mono font-bold shadow-sm">I</kbd>
+                            <span class="text-slate-600">Jump to Ideas view</span>
+                        </div>
+                        <div class="flex items-center gap-3 p-2 rounded-lg bg-slate-50 col-span-2">
+                            <div class="flex gap-1">
+                                <kbd class="px-2 py-1 rounded bg-white border border-slate-200 text-xs font-mono font-bold shadow-sm">←</kbd>
+                                <kbd class="px-2 py-1 rounded bg-white border border-slate-200 text-xs font-mono font-bold shadow-sm">→</kbd>
+                            </div>
+                            <span class="text-slate-600">Navigate slides in slideshow mode</span>
+                        </div>
                     </div>
                 </section>
 
@@ -385,7 +462,7 @@ Free-form Markdown notes here.
                     <h3 class="text-xs font-black uppercase tracking-widest text-slate-400 mb-3">🏷️ Special Tags</h3>
                     <div class="grid grid-cols-1 gap-1.5">
                         <div class="grid grid-cols-[180px_1fr] gap-3 px-3 py-2 rounded-lg bg-slate-50 items-start">
-                            <code class="text-xs font-mono font-bold text-rose-600">#active / #done / #hold / #backlog</code>
+                            <code class="text-xs font-mono font-bold text-rose-600">#active / #done / #hold / #paused / #backlog</code>
                             <span class="text-slate-600 text-xs">Status badge on Map &amp; Gantt bar colour</span>
                         </div>
                         <div class="grid grid-cols-[180px_1fr] gap-3 px-3 py-2 rounded-lg bg-slate-50 items-start">
@@ -463,6 +540,70 @@ Free-form Markdown notes here.
                             <div class="font-bold text-slate-800 text-xs mb-1">🗓️ Calendar</div>
                             <div class="text-xs text-slate-500">Monthly grid of all date markers and milestones</div>
                         </div>
+                        <div class="p-3 rounded-lg bg-slate-50">
+                            <div class="font-bold text-slate-800 text-xs mb-1">💡 Ideas</div>
+                            <div class="text-xs text-slate-500">All <code class="text-rose-600">**idea**</code> lines across projects collected in one place</div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Presentations -->
+                <section>
+                    <h3 class="text-xs font-black uppercase tracking-widest text-slate-400 mb-3">🎬 Presentations &amp; Slideshows</h3>
+                    <p class="text-xs text-slate-500 mb-3">Embed slides directly in project notes. Open any project in <strong>Presentation</strong> view — a filmstrip icon appears when slides are detected.</p>
+                    <div class="bg-slate-900 rounded-xl p-4 font-mono text-xs leading-relaxed text-slate-200 overflow-x-auto mb-3">
+<span class="text-slate-400"># Regular project notes (not shown in slideshow)</span>
+
+<span class="text-amber-400">&lt;!-- deck: My Talk --&gt;</span>
+
+<span class="text-emerald-300"># Title Slide</span>
+Regular markdown here — headings, lists, tables, mermaid…
+
+<span class="text-amber-400">&lt;!-- slide --&gt;</span>
+<span class="text-sky-400">&lt;!-- center --&gt;</span>
+
+<span class="text-emerald-300"># Centered Diagram</span>
+```mermaid
+graph LR; A --&gt; B
+```
+
+<span class="text-amber-400">&lt;!-- slide --&gt;</span>
+
+Left column content
+
+<span class="text-amber-400">&lt;!-- col --&gt;</span>
+
+Right column content
+
+<span class="text-amber-400">&lt;!-- /deck --&gt;</span>
+
+<span class="text-slate-400"># More notes after deck (excluded from slideshow)</span>
+
+<span class="text-amber-400">&lt;!-- deck: Another Deck --&gt;</span>
+…
+<span class="text-amber-400">&lt;!-- /deck --&gt;</span>
+                    </div>
+                    <div class="grid grid-cols-1 gap-1.5">
+                        <div class="grid grid-cols-[200px_1fr] gap-3 px-3 py-2 rounded-lg bg-slate-50 items-start">
+                            <code class="text-xs font-mono font-bold text-rose-600">&lt;!-- slide --&gt;</code>
+                            <span class="text-slate-600 text-xs">Slide break — invisible in normal view</span>
+                        </div>
+                        <div class="grid grid-cols-[200px_1fr] gap-3 px-3 py-2 rounded-lg bg-slate-50 items-start">
+                            <code class="text-xs font-mono font-bold text-rose-600">&lt;!-- col --&gt;</code>
+                            <span class="text-slate-600 text-xs">Split slide into columns (2–4 auto-detected). Each <code class="text-rose-600">&lt;!-- col --&gt;</code> adds one column.</span>
+                        </div>
+                        <div class="grid grid-cols-[200px_1fr] gap-3 px-3 py-2 rounded-lg bg-slate-50 items-start">
+                            <code class="text-xs font-mono font-bold text-rose-600">&lt;!-- center --&gt;</code>
+                            <span class="text-slate-600 text-xs">First line of a slide or column — centers all content. Good for diagrams and title slides.</span>
+                        </div>
+                        <div class="grid grid-cols-[200px_1fr] gap-3 px-3 py-2 rounded-lg bg-slate-50 items-start">
+                            <code class="text-xs font-mono font-bold text-rose-600">&lt;!-- deck: Name --&gt;</code>
+                            <span class="text-slate-600 text-xs">Opens a named presentation block. Content before/after any deck is excluded from slideshows.</span>
+                        </div>
+                        <div class="grid grid-cols-[200px_1fr] gap-3 px-3 py-2 rounded-lg bg-slate-50 items-start">
+                            <code class="text-xs font-mono font-bold text-rose-600">&lt;!-- /deck --&gt;</code>
+                            <span class="text-slate-600 text-xs">Closes the current deck. Multiple decks per project — filmstrip button opens a picker.</span>
+                        </div>
                     </div>
                 </section>
 
@@ -476,6 +617,9 @@ Free-form Markdown notes here.
                         <li class="flex gap-2"><span class="text-amber-500">▸</span> Set <code class="text-rose-600">DB_PATH</code> env var (copy <code>.env.example → .env</code>) to use any Markdown file as your database.</li>
                         <li class="flex gap-2"><span class="text-amber-500">▸</span> Projects with <code class="text-rose-600">#_hidden</code> are invisible in views but still editable via direct URL or filter.</li>
                         <li class="flex gap-2"><span class="text-amber-500">▸</span> Gantt auto-detects date range from content if <code class="text-rose-600">#start:</code>/<code class="text-rose-600">#due:</code> are absent.</li>
+                        <li class="flex gap-2"><span class="text-amber-500">▸</span> Any line containing <code class="text-rose-600">**idea**</code> (case-insensitive) appears in the Ideas view and TUI Ideas tab.</li>
+                        <li class="flex gap-2"><span class="text-amber-500">▸</span> Mermaid diagrams work in project notes and inside slides — use a fenced <code class="text-rose-600">```mermaid</code> block.</li>
+                        <li class="flex gap-2"><span class="text-amber-500">▸</span> The split editor (⬜ icon) shows a live markdown preview while you type.</li>
                     </ul>
                 </section>
 
@@ -556,6 +700,9 @@ Free-form Markdown notes here.
         let calendarYear = new Date().getFullYear();
         let calendarMonth = new Date().getMonth();
         let quickCaptureOpen = false;
+        let slideshowSlides  = [];
+        let slideshowIndex   = 0;
+        let slideshowOpen    = false;
 
         const COLORS = ['#f7b705','#10b981','#e11d48','#3b82f6','#8b5cf6','#ec4899','#14b8a6','#f97316','#06b6d4','#64748b'];
 
@@ -671,6 +818,11 @@ Free-form Markdown notes here.
             _mermaidInit(); mermaid.run({ nodes: presContent.querySelectorAll('.mermaid') });
             document.getElementById('pres-edit-btn').onclick = () => { closePresentation(); openModal(id); };
             document.getElementById('pres-split-btn').onclick = () => { closePresentation(); openSplitEditor(id); };
+            const ssBtn = document.getElementById('pres-slideshow-btn');
+            const ssDecks = _parseDecks(body);
+            const hasSlides = ssDecks ? ssDecks.length >= 1 : _parseSlides(body).length >= 2;
+            ssBtn.classList.toggle('hidden', !hasSlides);
+            ssBtn.onclick = () => { closePresentation(); openSlideshow(id); };
             document.getElementById('presentation-modal').classList.remove('hidden');
             presentationFontSize = 18; updateFontSizeDisplay();
         }
@@ -684,6 +836,155 @@ Free-form Markdown notes here.
             document.getElementById('presentation-content').style.fontSize = presentationFontSize + 'px';
             document.getElementById('font-size-label').innerText = Math.round((presentationFontSize / 18) * 100) + '%';
         }
+
+        // ── Slideshow ──────────────────────────────────────────────────────────
+        function _parseSlides(body) {
+            return body.split(/<!--\\s*slide\\s*-->/gi)
+                       .map(s => s.trim()).filter(s => s.length > 0);
+        }
+
+        function _buildSlideHTML(raw) {
+            const colParts = raw.split(/<!--\\s*col\\s*-->/gi);
+            const buildColContent = (chunk) => {
+                const centered = /^<!--\\s*center\\s*-->/i.test(chunk);
+                const md = chunk.replace(/^<!--\\s*center\\s*-->\\s*/i, '').trim();
+                const html = marked.parse(md);
+                return centered ? `<div class="ss-centered">${html}</div>` : html;
+            };
+            if (colParts.length > 1) {
+                const n = Math.min(colParts.length, 4);
+                const cols = colParts.slice(0, n).map(c =>
+                    `<div class="ss-col markdown-content">${buildColContent(c.trim())}</div>`
+                ).join('');
+                return `<div class="ss-cols ss-cols-${n}">${cols}</div>`;
+            }
+            const centered = /^<!--\\s*center\\s*-->/i.test(raw);
+            const md = raw.replace(/^<!--\\s*center\\s*-->\\s*/i, '').trim();
+            const html = marked.parse(md);
+            return centered ? `<div class="ss-centered">${html}</div>` : html;
+        }
+
+        function openSlideshow(id, deckName) {
+            const proj  = projects.find(p => p.id === id);
+            if (!proj) return;
+            const body  = proj.content.split(/\\n---\\n/).slice(1).join('\\n---\\n').trim();
+            const decks = _parseDecks(body);
+            if (decks && !deckName) {
+                if (decks.length === 1) { _launchDeck(proj.title, decks[0]); }
+                else { _showDeckPicker(proj, decks); }
+                return;
+            }
+            if (decks && deckName) {
+                const deck = decks.find(d => d.name === deckName);
+                if (deck) _launchDeck(proj.title, deck);
+                return;
+            }
+            // No deck tags — original behavior
+            const slides = _parseSlides(body);
+            if (slides.length < 2) return;
+            _launchDeck(proj.title, { name: null, content: body });
+        }
+
+        function _parseDecks(body) {
+            // Normalize <!-- /deck --> into a sentinel open-tag so it terminates the previous deck
+            const normalized = body.replace(/<!--\\s*\\/deck\\s*-->/gi, '<!-- deck: __END__ -->');
+            const deckRe = /<!--\\s*deck:\\s*([^>]+?)\\s*-->/gi;
+            const parts  = normalized.split(deckRe);
+            if (parts.length < 3) return null;
+            const decks  = [];
+            for (let i = 1; i < parts.length; i += 2) {
+                const name    = parts[i].trim();
+                const content = (parts[i + 1] || '').trim();
+                if (name !== '__END__' && content) decks.push({ name, content });
+            }
+            return decks.length ? decks : null;
+        }
+
+        function _launchDeck(projectTitle, deck) {
+            const slides = _parseSlides(deck.content);
+            if (slides.length < 1) return;
+            slideshowSlides = slides;
+            slideshowIndex  = 0;
+            slideshowOpen   = true;
+            document.getElementById('ss-project-title').textContent =
+                deck.name ? `${projectTitle}  ·  ${deck.name}` : projectTitle;
+            _buildSsDots();
+            const modal = document.getElementById('slideshow-modal');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+            _renderSlide(0);
+        }
+
+        function _showDeckPicker(proj, decks) {
+            document.getElementById('ss-picker-project').textContent = proj.title;
+            const list = document.getElementById('ss-picker-list');
+            list.innerHTML = '';
+            decks.forEach(deck => {
+                const btn = document.createElement('button');
+                btn.className = 'w-full text-left px-4 py-3 rounded-xl bg-slate-50 hover:bg-amber-50 hover:text-amber-700 font-semibold text-slate-700 transition-colors';
+                btn.textContent = deck.name;
+                btn.onclick = () => { closeDeckPicker(); openSlideshow(proj.id, deck.name); };
+                list.appendChild(btn);
+            });
+            const el = document.getElementById('ss-deck-picker');
+            el.classList.remove('hidden');
+            el.classList.add('flex');
+        }
+
+        function closeDeckPicker() {
+            const el = document.getElementById('ss-deck-picker');
+            el.classList.add('hidden');
+            el.classList.remove('flex');
+        }
+
+        function closeSlideshow() {
+            slideshowOpen = false;
+            const modal = document.getElementById('slideshow-modal');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        }
+
+        function goToSlide(n) {
+            if (n < 0 || n >= slideshowSlides.length) return;
+            slideshowIndex = n;
+            _renderSlide(n);
+        }
+        function nextSlide() { goToSlide(slideshowIndex + 1); }
+        function prevSlide() { goToSlide(slideshowIndex - 1); }
+
+        function _renderSlide(n) {
+            const total   = slideshowSlides.length;
+            const content = document.getElementById('ss-content');
+            content.classList.add('ss-transitioning');
+            setTimeout(() => {
+                content.innerHTML = _buildSlideHTML(slideshowSlides[n]);
+                _mermaidInit();
+                mermaid.run({ nodes: content.querySelectorAll('.mermaid') });
+                document.getElementById('ss-counter').textContent = `${n + 1} / ${total}`;
+                const pct = total > 1 ? (n / (total - 1)) * 100 : 100;
+                document.getElementById('ss-progress-fill').style.width = pct + '%';
+                document.querySelectorAll('.ss-dot').forEach((d, i) => d.classList.toggle('active', i === n));
+                const h = content.querySelector('h1, h2, h3');
+                document.getElementById('ss-slide-title').textContent = h ? h.textContent : '';
+                document.getElementById('ss-prev-btn').disabled = (n === 0);
+                document.getElementById('ss-next-btn').disabled = (n === total - 1);
+                content.classList.remove('ss-transitioning');
+            }, 200);
+        }
+
+        function _buildSsDots() {
+            const dotsEl = document.getElementById('ss-dots');
+            dotsEl.innerHTML = '';
+            if (slideshowSlides.length > 20) return;
+            slideshowSlides.forEach((_, i) => {
+                const btn = document.createElement('button');
+                btn.className = 'ss-dot' + (i === 0 ? ' active' : '');
+                btn.setAttribute('aria-label', `Slide ${i + 1}`);
+                btn.onclick = () => goToSlide(i);
+                dotsEl.appendChild(btn);
+            });
+        }
+        // ── End Slideshow ──────────────────────────────────────────────────────
 
         function insertDateAtCursor() {
             const ed = cmEditor || cmSplitEditor;
@@ -1674,6 +1975,8 @@ Free-form Markdown notes here.
                 const descLines = parts[0].split('\\n');
                 const desc     = descLines.length > 1 ? descLines.slice(1).join('\\n').trim() : '';
                 const body     = parts.slice(1).join('\\n---\\n').trim();
+                const _bDecks = _parseDecks(body);
+                const hasSlides = _bDecks ? _bDecks.length >= 1 : _parseSlides(body).length > 1;
                 const tags     = [...proj.content.matchAll(/#(\\w+)/g)].map(m => m[1]);
                 const priorityCls = tags.includes('p1') ? ' priority-p1' : tags.includes('p2') ? ' priority-p2' : tags.includes('p3') ? ' priority-p3' : '';
                 const col = document.createElement('div');
@@ -1684,6 +1987,7 @@ Free-form Markdown notes here.
                         <div class="flex justify-between items-start mb-2">
                             <h2 class="text-lg font-bold pr-12">${proj.title}</h2>
                             <div class="flex gap-1">
+                                ${hasSlides ? `<button onclick="openSlideshow('${proj.id}')" class="p-1 text-slate-300 hover:text-amber-500" title="Slideshow"><svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 4v16M17 4v16M3 8h4m10 0h4M3 16h4m10 0h4M4 20h16a1 1 0 001-1V5a1 1 0 00-1-1H4a1 1 0 00-1 1v14a1 1 0 001 1z"/></svg></button>` : ''}
                                 <button onclick="openPresentation('${proj.id}')" class="p-1 text-slate-300 hover:text-emerald-600" title="Presentation"><svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg></button>
                                 <button onclick="openSplitEditor('${proj.id}')"  class="p-1 text-slate-300 hover:text-violet-500" title="Split view"><svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 3H4a1 1 0 00-1 1v16a1 1 0 001 1h5M9 3h11a1 1 0 011 1v16a1 1 0 01-1 1H9M9 3v18"/></svg></button>
                                 <button onclick="openModal('${proj.id}')"        class="p-1 text-slate-300 hover:text-amber-500"  title="Edit"><svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg></button>
@@ -2080,6 +2384,16 @@ Free-form Markdown notes here.
         }
 
         document.addEventListener('keydown', e => {
+            if (!document.getElementById('ss-deck-picker').classList.contains('hidden')) {
+                if (e.key === 'Escape') { closeDeckPicker(); return; }
+                return;
+            }
+            if (slideshowOpen) {
+                if (e.key === 'ArrowRight' || e.key === 'ArrowDown') { e.preventDefault(); nextSlide(); return; }
+                if (e.key === 'ArrowLeft'  || e.key === 'ArrowUp')   { e.preventDefault(); prevSlide(); return; }
+                if (e.key === 'Escape') { closeSlideshow(); return; }
+                return;
+            }
             const tag = ((document.activeElement||{}).tagName||'').toUpperCase();
             const editorOpen = !document.getElementById('editor-modal').classList.contains('hidden');
             const presOpen   = !document.getElementById('presentation-modal').classList.contains('hidden');

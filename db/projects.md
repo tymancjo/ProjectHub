@@ -149,3 +149,72 @@ TODO: [ ] Write architecture overview
 TODO: [ ] Write deployment runbook
 TODO: [ ] Review cycle with team leads
 TODO: [ ] Publish to internal wiki
+
+## Project: Slide Demo
+**Short Desc:** Demo of the slideshow feature — open in presentation mode.
+---
+#active #cat:demo #load:0
+
+# Welcome to Slideshows
+Use `<!-- slide -->` to create slides inside any project note.
+Open the presentation view, then click the **filmstrip icon** to enter slideshow mode.
+
+<!-- slide -->
+
+# Two-Column Layout
+Use `<!-- col -->` inside a slide to split into columns.
+
+<!-- col -->
+
+**Right column**
+- Bullet A
+- Bullet B
+- Bullet C
+
+<!-- slide -->
+<!-- center -->
+
+# Centered Slide
+Everything on this slide is centered.
+
+This is useful for title slides or diagram-only slides.
+
+<!-- slide -->
+
+## Columns + Center
+
+Left column content
+with multiple lines
+
+<!-- col -->
+<!-- center -->
+
+**Right col is centered**
+
+Use `<!-- center -->` as the first line of a column.
+
+<!-- slide -->
+<!-- center -->
+
+# Mermaid in a slide
+
+```mermaid
+graph LR
+  A[Start] --> B{Decision}
+  B --> |Yes| C[Do it]
+  B --> |No| D[Skip it]
+  C --> E[Done]
+  D --> E
+```
+
+<!-- slide -->
+
+# Navigation
+
+| Key | Action |
+|---|---|
+| `→` / `↓` | Next slide |
+| `←` / `↑` | Previous slide |
+| `Esc` | Close slideshow |
+
+Dot indicators appear at the bottom for decks ≤ 20 slides.

@@ -8,22 +8,32 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 # Install deps (uses uv)
 uv sync
 
-# Run dev server
+# Option 1: launcher (starts server + menu for TUI or browser)
+uv run python launcher.py
+
+# Option 2: server only
 uv run python app.py
-# OR activate venv first
-source .venv/bin/activate && python app.py
+
+# Option 3: TUI only (requires server already running)
+uv run python tui.py
 ```
 
-App runs at `http://127.0.0.1:5000`. No build step.
+App runs at `http://127.0.0.1:5000`. No build step. `HUB_URL` env var overrides the default URL.
 
 ## Architecture
 
-Single-file app: **all backend + entire frontend HTML/CSS/JS lives in `app.py`**.
+Three entry points, one data module:
 
-- `HTML_TEMPLATE` (line ~57) — one giant `render_template_string` holding every view
-- `read_projects()` — parses `db/projects.md` by splitting on `## Project:` headers
-- `save_projects_to_file()` — joins project content blocks with `\n\n` and overwrites file
-- Auto-backup on save to `db/backup/` (timestamp-prefixed)
+- **`app.py`** — Flask server + entire frontend HTML/CSS/JS (`HTML_TEMPLATE` starts at line 9)
+- **`db.py`** — data layer: `read_projects()`, `save_projects_to_file()`, `parse_meta()`, `toggle_todo()`, `set_status()`
+- **`launcher.py`** — starts Flask subprocess, then offers TUI or browser via a Rich menu; shuts server on exit
+- **`tui.py`** — Textual TUI; calls Flask API over httpx; tabs: Projects, TODOs, Ideas
+
+### Data flow
+
+`db.py` reads/writes `db/projects.md`. `app.py` imports from `db.py`. `tui.py` imports `parse_meta` and `set_status` from `db.py` but persists changes through the Flask API (`/api/save-order`).
+
+Backup: every save auto-copies to `db/backup/YYYYMMDD_HHMMSS_projects.md`; keeps last 20.
 
 ### API Routes
 
@@ -31,13 +41,17 @@ Single-file app: **all backend + entire frontend HTML/CSS/JS lives in `app.py`**
 |---|---|---|
 | `/` | GET | Serves the full SPA |
 | `/api/projects` | GET | Returns parsed projects as JSON |
-| `/api/save-order` | POST | Accepts reordered project content array, writes file |
-| `/api/toggle-todo` | POST | Toggles `TODO: [ ]` ↔ `TODO: [x]` by projectId + lineIndex |
+| `/api/save-order` | POST | Accepts `[content_str, …]`, writes file |
+| `/api/toggle-todo` | POST | `{projectId, lineIndex}` — toggles `TODO: [ ]` ↔ `TODO: [x]` |
+| `/api/update-tags` | POST | `{projectId, tagKey, tagValue}` — upserts a `#key:value` tag |
+| `/api/backups` | GET | Lists available backup files |
+| `/api/backup/<filename>` | GET | Returns raw backup content |
+| `/api/restore` | POST | `{filename}` — restores a backup |
 | `/raw` | GET | Returns raw `db/projects.md` as plain text |
 
 ### Frontend Views (all in `HTML_TEMPLATE`)
 
-Views are toggled with `setViewMode(mode)` in JS — no routing, no page reloads.
+Views toggled with `setViewMode(mode)` — no routing, no page reloads.
 
 | Mode | Description |
 |---|---|
@@ -49,9 +63,16 @@ Views are toggled with `setViewMode(mode)` in JS — no routing, no page reloads
 | `map` | Portfolio view with task progress bars |
 | `network` | Project relationship graph |
 
-Frontend libs (all CDN): Tailwind CSS, Marked.js, Sortable.js, CodeMirror 5 (editor with Vim keymap + Dracula theme).
+Frontend libs (all CDN): Tailwind CSS, Marked.js, Mermaid.js, Sortable.js, CodeMirror 5 (editor with Vim keymap + Dracula theme).
 
 Dark mode: toggled via `html.dark` class; CSS custom properties defined in `:root` and `html.dark`.
+
+### TUI Key Bindings
+
+Projects tab: `e` edit in `$EDITOR`, `s` cycle status, `/` filter, `Esc` clear filter, `r` reload.  
+TODOs tab: `Space`/`t` toggle todo, `r` reload.  
+Ideas tab: `e` edit parent project, `r` reload.  
+Global: `1/2/3` switch tabs, `j/k` navigate, `q` quit.
 
 ## Data Format (`db/projects.md`)
 
@@ -67,17 +88,22 @@ Free-form Markdown notes.
 
 TODO: [ ] Open task
 TODO: [x] Done task
+
+- **idea** something to explore
 ```
 
 ### Special Tags
 
 | Tag | Effect |
 |---|---|
-| `#cat:name` | Groups project in Map view |
+| `#cat:name` | Groups project in Map/home view |
 | `#_hidden` | Hides from default view (underscore prefix = hidden) |
-| `#active` / `#done` / `#hold` / `#paused` / `#backlog` | Status badge in Map |
-| `#load:N` | Numeric workload indicator |
+| `#active` / `#done` / `#hold` / `#paused` / `#backlog` | Status badge |
+| `#load:N` | Numeric workload indicator (0–100) |
 | `#proj:name` | Links project to another (shown in Network view) |
+| `#due:dd-mm-yyyy` / `#start:dd-mm-yyyy` | Date tags; upserted via `/api/update-tags` |
+
+`**idea**` anywhere in a line (case-insensitive) surfaces it in the TUI Ideas tab and `parse_meta()`.
 
 ## Config
 
