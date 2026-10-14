@@ -34,14 +34,27 @@ TODO: [x] Dark mode toggle
 """
 
 STATUS_TAGS = ("active", "done", "hold", "paused", "backlog")
+TT_MARKER = "## @TimeTrack"
 
 
-def read_projects():
+def _split_content(text):
+    """Split file text into (projects_text, timetrack_text). timetrack_text includes the marker line or is ''."""
+    m = re.search(r'^' + re.escape(TT_MARKER) + r'[ \t]*$', text, re.MULTILINE)
+    if not m:
+        return text, ""
+    return text[:m.start()], text[m.start():].strip()
+
+
+def _read_raw():
     if not os.path.exists(DB_FILE):
         with open(DB_FILE, "w", encoding="utf-8") as f:
             f.write(INITIAL_CONTENT)
     with open(DB_FILE, "r", encoding="utf-8") as f:
-        content = f.read()
+        return f.read()
+
+
+def read_projects():
+    content, _ = _split_content(_read_raw())
     raw_sections = re.split(r'(?=## Project:)', content)
     projects = []
     for section in raw_sections:
@@ -54,7 +67,10 @@ def read_projects():
     return projects
 
 
-def save_projects_to_file(projects_data):
+def save_projects_to_file(projects_data, timetrack_text=None):
+    """Write projects. timetrack_text=None keeps the existing @TimeTrack block."""
+    if timetrack_text is None:
+        timetrack_text = _split_content(_read_raw())[1] if os.path.exists(DB_FILE) else ""
     if os.path.exists(DB_FILE):
         backup_dir = os.path.join(DB_DIR, "backup")
         os.makedirs(backup_dir, exist_ok=True)
@@ -67,10 +83,56 @@ def save_projects_to_file(projects_data):
         except OSError:
             pass
     content = "\n\n".join(projects_data)
+    if timetrack_text.strip():
+        content += "\n\n" + timetrack_text.strip() + "\n"
     tmp_path = DB_FILE + ".tmp"
     with open(tmp_path, "w", encoding="utf-8") as f:
         f.write(content)
     os.replace(tmp_path, DB_FILE)
+
+
+def read_timetrack():
+    """Return [{ts, project, category, load}] from the @TimeTrack section."""
+    _, tt = _split_content(_read_raw())
+    rows = []
+    for line in tt.split('\n')[1:]:
+        parts = [p.strip() for p in line.strip().lstrip('-').split('|')]
+        if len(parts) != 4 or not re.match(r'^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$', parts[0]):
+            continue
+        try:
+            load = float(parts[3])
+        except ValueError:
+            continue
+        rows.append({"ts": parts[0], "project": parts[1], "category": parts[2], "load": load})
+    return rows
+
+
+def _write_timetrack(rows):
+    lines = [TT_MARKER] + [
+        f"- {r['ts']} | {r['project']} | {r['category']} | {r['load']:g}" for r in rows
+    ]
+    projects = read_projects()
+    save_projects_to_file([p["content"] for p in projects], "\n".join(lines) if rows else "")
+
+
+def append_timetrack(items, ts=None):
+    """Append one snapshot. items: [{project, category, load}]. Returns timestamp used."""
+    ts = ts or datetime.now().strftime("%Y-%m-%d %H:%M")
+    clean = lambda v: str(v).replace('|', '/').replace('\n', ' ').strip()
+    rows = [r for r in read_timetrack() if r["ts"] != ts]
+    for it in items:
+        rows.append({
+            "ts": ts,
+            "project": clean(it.get("project", "")) or "?",
+            "category": clean(it.get("category", "")) or "—",
+            "load": float(it.get("load", 0)),
+        })
+    _write_timetrack(rows)
+    return ts
+
+
+def delete_timetrack(ts):
+    _write_timetrack([r for r in read_timetrack() if r["ts"] != ts])
 
 
 def parse_meta(content: str) -> dict:

@@ -2,7 +2,8 @@ import os
 import re
 from datetime import datetime
 from flask import Flask, request, jsonify, render_template_string
-from db import read_projects, save_projects_to_file, DB_FILE, DB_DIR
+from db import (read_projects, save_projects_to_file, DB_FILE, DB_DIR, _split_content,
+                read_timetrack, append_timetrack, delete_timetrack)
 
 app = Flask(__name__)
 
@@ -141,10 +142,6 @@ HTML_TEMPLATE = """
         #quick-capture-panel { transform: translateY(100%); transition: transform 0.28s cubic-bezier(.4,0,.2,1); }
         #quick-capture-panel.open { transform: translateY(0); }
 
-        /* Gantt */
-        .gantt-row-label { height: 42px; display: flex; align-items: center; padding: 0 12px; border-bottom: 1px solid rgba(226,232,240,0.5); cursor: pointer; gap: 6px; transition: background 0.1s; }
-        .gantt-row-label:hover { background: rgba(247,183,5,0.06); }
-        .gantt-group-label { height: 42px; display: flex; align-items: center; padding: 0 12px; background: var(--bg-muted); border-bottom: 1px solid var(--border); }
 
         /* Calendar */
         .cal-day { min-height: 86px; border-right: 1px solid #f1f5f9; border-bottom: 1px solid #f1f5f9; padding: 6px; }
@@ -171,7 +168,7 @@ HTML_TEMPLATE = """
                 <button id="view-timeline" onclick="setViewMode('timeline')" class="px-4 py-1.5 rounded-md text-sm font-bold transition-all text-slate-500 hover:text-slate-800">Timeline</button>
                 <button id="view-map"      onclick="setViewMode('map')"      class="px-4 py-1.5 rounded-md text-sm font-bold transition-all text-slate-500 hover:text-slate-800">Map</button>
                 <button id="view-network"  onclick="setViewMode('network')"  class="px-4 py-1.5 rounded-md text-sm font-bold transition-all text-slate-500 hover:text-slate-800">Network</button>
-                <button id="view-gantt"    onclick="setViewMode('gantt')"    class="px-4 py-1.5 rounded-md text-sm font-bold transition-all text-slate-500 hover:text-slate-800">Gantt</button>
+                <button id="view-timetrack" onclick="setViewMode('timetrack')" class="px-4 py-1.5 rounded-md text-sm font-bold transition-all text-slate-500 hover:text-slate-800">Tracking</button>
                 <button id="view-calendar" onclick="setViewMode('calendar')" class="px-4 py-1.5 rounded-md text-sm font-bold transition-all text-slate-500 hover:text-slate-800">Calendar</button>
                 <button id="view-ideas"    onclick="setViewMode('ideas')"    class="px-4 py-1.5 rounded-md text-sm font-bold transition-all text-slate-500 hover:text-slate-800">Ideas</button>
             </nav>
@@ -230,10 +227,13 @@ HTML_TEMPLATE = """
         <div id="map-view"      class="hidden flex-1 overflow-y-auto p-8"></div>
         <div id="search-view"  class="hidden flex-1 overflow-y-auto p-8"></div>
         <div id="network-view"  class="hidden flex-1 overflow-hidden p-6"></div>
-        <div id="gantt-view"    class="hidden flex-1 overflow-hidden p-6"></div>
+        <div id="timetrack-view" class="hidden flex-1 overflow-y-auto p-8"></div>
         <div id="calendar-view" class="hidden flex-1 overflow-y-auto p-8"></div>
         <div id="ideas-view"    class="hidden flex-1 overflow-y-auto p-8"></div>
     </main>
+
+    <!-- Fullscreen load pie -->
+    <div id="pie-fs" class="hidden fixed inset-0 z-50 flex flex-col" style="background:var(--bg-app)"></div>
 
     <!-- Editor Modal -->
     <div id="editor-modal" class="fixed inset-0 bg-slate-900/80 backdrop-blur-md z-50 hidden flex items-center justify-center p-4">
@@ -463,27 +463,27 @@ Free-form Markdown notes here.
                     <div class="grid grid-cols-1 gap-1.5">
                         <div class="grid grid-cols-[180px_1fr] gap-3 px-3 py-2 rounded-lg bg-slate-50 items-start">
                             <code class="text-xs font-mono font-bold text-rose-600">#active / #done / #hold / #paused / #backlog</code>
-                            <span class="text-slate-600 text-xs">Status badge on Map &amp; Gantt bar colour</span>
+                            <span class="text-slate-600 text-xs">Status badge on Map; only <strong>#active</strong> count in the load pie</span>
                         </div>
                         <div class="grid grid-cols-[180px_1fr] gap-3 px-3 py-2 rounded-lg bg-slate-50 items-start">
                             <code class="text-xs font-mono font-bold text-rose-600">#cat:name</code>
-                            <span class="text-slate-600 text-xs">Groups project in Map &amp; Gantt swimlanes</span>
+                            <span class="text-slate-600 text-xs">Groups project in Map &amp; category load split</span>
                         </div>
                         <div class="grid grid-cols-[180px_1fr] gap-3 px-3 py-2 rounded-lg bg-slate-50 items-start">
                             <code class="text-xs font-mono font-bold text-rose-600">#load:N</code>
-                            <span class="text-slate-600 text-xs">Numeric workload (shown in Map &amp; Gantt tooltip)</span>
+                            <span class="text-slate-600 text-xs">Numeric workload — sets the project's slice in the Map load pie (default 100)</span>
                         </div>
                         <div class="grid grid-cols-[180px_1fr] gap-3 px-3 py-2 rounded-lg bg-slate-50 items-start">
                             <code class="text-xs font-mono font-bold text-rose-600">#start:dd-mm-yyyy</code>
-                            <span class="text-slate-600 text-xs">Gantt bar start date (falls back to first <strong>**date**</strong> in content)</span>
+                            <span class="text-slate-600 text-xs">Project start date (informational)</span>
                         </div>
                         <div class="grid grid-cols-[180px_1fr] gap-3 px-3 py-2 rounded-lg bg-slate-50 items-start">
                             <code class="text-xs font-mono font-bold text-rose-600">#due:dd-mm-yyyy</code>
-                            <span class="text-slate-600 text-xs">Deadline shown in Home dashboard &amp; Gantt bar end</span>
+                            <span class="text-slate-600 text-xs">Deadline shown in Home dashboard</span>
                         </div>
                         <div class="grid grid-cols-[180px_1fr] gap-3 px-3 py-2 rounded-lg bg-slate-50 items-start">
                             <code class="text-xs font-mono font-bold text-rose-600">#proj:project-id</code>
-                            <span class="text-slate-600 text-xs">Links to another project — shown in Network &amp; Gantt arrows</span>
+                            <span class="text-slate-600 text-xs">Links to another project — shown in Network view</span>
                         </div>
                         <div class="grid grid-cols-[180px_1fr] gap-3 px-3 py-2 rounded-lg bg-slate-50 items-start">
                             <code class="text-xs font-mono font-bold text-rose-600">#p1 / #p2 / #p3</code>
@@ -533,8 +533,8 @@ Free-form Markdown notes here.
                             <div class="text-xs text-slate-500">SVG graph of <code class="text-rose-600">#proj:</code> dependencies</div>
                         </div>
                         <div class="p-3 rounded-lg bg-slate-50">
-                            <div class="font-bold text-slate-800 text-xs mb-1">📊 Gantt</div>
-                            <div class="text-xs text-slate-500">Timeline bars with zoom week/month/quarter, dependency arrows</div>
+                            <div class="font-bold text-slate-800 text-xs mb-1">⏱️ Time Track</div>
+                            <div class="text-xs text-slate-500">Work split history — press <strong>＋ Track</strong> on Map to save a snapshot; ⛶ on Map shows the pie fullscreen</div>
                         </div>
                         <div class="p-3 rounded-lg bg-slate-50">
                             <div class="font-bold text-slate-800 text-xs mb-1">🗓️ Calendar</div>
@@ -611,12 +611,11 @@ Right column content
                 <section>
                     <h3 class="text-xs font-black uppercase tracking-widest text-slate-400 mb-3">💡 Tips</h3>
                     <ul class="space-y-1.5 text-xs text-slate-600">
-                        <li class="flex gap-2"><span class="text-amber-500">▸</span> Click any Gantt bar or Network node to open the full project view.</li>
+                        <li class="flex gap-2"><span class="text-amber-500">▸</span> Click any Map card or Network node to open the full project view.</li>
                         <li class="flex gap-2"><span class="text-amber-500">▸</span> Press 📅 Date in the editor to insert today's date in the correct format.</li>
                         <li class="flex gap-2"><span class="text-amber-500">▸</span> Toggle <strong>VIM</strong> in the editor for Vim keybindings (with Dracula theme).</li>
                         <li class="flex gap-2"><span class="text-amber-500">▸</span> Set <code class="text-rose-600">DB_PATH</code> env var (copy <code>.env.example → .env</code>) to use any Markdown file as your database.</li>
                         <li class="flex gap-2"><span class="text-amber-500">▸</span> Projects with <code class="text-rose-600">#_hidden</code> are invisible in views but still editable via direct URL or filter.</li>
-                        <li class="flex gap-2"><span class="text-amber-500">▸</span> Gantt auto-detects date range from content if <code class="text-rose-600">#start:</code>/<code class="text-rose-600">#due:</code> are absent.</li>
                         <li class="flex gap-2"><span class="text-amber-500">▸</span> Any line containing <code class="text-rose-600">**idea**</code> (case-insensitive) appears in the Ideas view and TUI Ideas tab.</li>
                         <li class="flex gap-2"><span class="text-amber-500">▸</span> Mermaid diagrams work in project notes and inside slides — use a fenced <code class="text-rose-600">```mermaid</code> block.</li>
                         <li class="flex gap-2"><span class="text-amber-500">▸</span> The split editor (⬜ icon) shows a live markdown preview while you type.</li>
@@ -692,11 +691,13 @@ Right column content
         let timelineFilter = 'all';
         let searchQuery = '';
         let mapLoadMode = 'project';
+        let ttSnapshots = [];
+        let ttMode = 'project', ttChart = 'bars', ttRange = 'all';
+        let pieFs = null;
         let cmEditor = null;
         let cmSplitEditor = null;
         let currentSplitId = null;
         let vimEnabled = localStorage.getItem('vimMode') === 'true';
-        let ganttZoom = localStorage.getItem('ganttZoom') || 'month';
         let calendarYear = new Date().getFullYear();
         let calendarMonth = new Date().getMonth();
         let quickCaptureOpen = false;
@@ -718,6 +719,7 @@ Right column content
         async function loadProjects() {
             const r = await fetch('/api/projects');
             projects = await r.json();
+            await loadTimeTrack();
             setViewMode(viewMode);
         }
 
@@ -728,7 +730,7 @@ Right column content
             document.getElementById('search-input').value = '';
             const filterBound = ['board', 'list'];
             document.getElementById('filter-bar').classList.toggle('hidden', !filterBound.includes(mode));
-            ['home','board','list','todos','timeline','map','network','gantt','calendar','ideas'].forEach(v => {
+            ['home','board','list','todos','timeline','map','network','timetrack','calendar','ideas'].forEach(v => {
                 const btn = document.getElementById('view-' + v);
                 const el  = document.getElementById(v === 'board' ? 'board' : v + '-view');
                 if (btn) btn.className = (mode === v)
@@ -1501,20 +1503,6 @@ Right column content
         // ── Boss Map view ─────────────────────────────────────────────────────
         function setMapLoadMode(m) { mapLoadMode = m; renderBossMap(); }
 
-        function drawPie(slices, cx, cy, r) {
-            const total = slices.reduce((s,sl) => s+sl.value, 0) || 1;
-            let angle = -Math.PI/2, svg = '';
-            slices.forEach(sl => {
-                const sweep = sl.value/total*2*Math.PI;
-                const x1=(cx+r*Math.cos(angle)).toFixed(2), y1=(cy+r*Math.sin(angle)).toFixed(2);
-                const x2=(cx+r*Math.cos(angle+sweep)).toFixed(2), y2=(cy+r*Math.sin(angle+sweep)).toFixed(2);
-                const large = sweep > Math.PI ? 1 : 0;
-                svg += `<path d="M${cx},${cy} L${x1},${y1} A${r},${r} 0 ${large},1 ${x2},${y2} Z" fill="${sl.color}" stroke="white" stroke-width="1.5"><title>${sl.label}: ${Math.round(sl.value/total*100)}%</title></path>`;
-                angle += sweep;
-            });
-            return svg;
-        }
-
         function statusStyle(tags) {
             if (tags.includes('done'))   return { color:'#10b981', label:'Done' };
             if (tags.includes('active')) return { color:'#f7b705', label:'Active' };
@@ -1524,8 +1512,7 @@ Right column content
         }
 
         function renderBossMap() {
-            const palette = ['#f7b705','#10b981','#e11d48','#3b82f6','#8b5cf6','#ec4899','#14b8a6','#f97316'];
-            const catColors = {}; let ci = 0;
+            const catColors = {};
 
             const enriched = projects.map(proj => {
                 const allTags  = [...proj.content.matchAll(/#([a-zA-Z][\\w:]*)/g)].map(m => m[1]);
@@ -1545,25 +1532,10 @@ Right column content
 
             const catMap = {};
             enriched.forEach(p => p.cats.forEach(cat => { if (!catMap[cat]) catMap[cat]=[]; catMap[cat].push(p); }));
-            Object.keys(catMap).sort().forEach(cat => { if (cat !== '—') catColors[cat] = palette[ci++ % palette.length]; });
-            catColors['—'] = '#94a3b8';
+            Object.keys(catMap).sort().forEach(cat => { catColors[cat] = seriesColor('category', cat); });
 
             // Load chart data — active projects only
-            const activeEnriched = enriched.filter(p => p.plainTags.includes('active'));
-            const projLoads = activeEnriched.map((p, pi) => {
-                const lm = p.content.match(/#load:(\\d+)/);
-                return { label: p.title, value: lm ? parseInt(lm[1]) : 100, color: COLORS[pi % COLORS.length] };
-            });
-            const catLoadTmp = {};
-            activeEnriched.forEach((p, pi) => {
-                const lv = projLoads[pi].value;
-                p.cats.forEach(cat => {
-                    if (!catLoadTmp[cat]) catLoadTmp[cat] = { label: cat==='—'?'Uncategorized':cat, value:0, color: catColors[cat]||'#94a3b8' };
-                    catLoadTmp[cat].value += lv;
-                });
-            });
-            const catLoads = Object.values(catLoadTmp);
-            const pieSlices = mapLoadMode === 'category' ? catLoads : projLoads;
+            const pieSlices = slicesFromItems(activeLoadItems(), mapLoadMode);
             const pieTotal = pieSlices.reduce((s,sl)=>s+sl.value,0)||1;
             const pieSvg = drawPie(pieSlices, 80, 80, 72);
 
@@ -1590,11 +1562,18 @@ Right column content
                                     <button onclick="setMapLoadMode('project')" class="px-2 py-0.5 text-[10px] font-bold rounded ${mapLoadMode==='project'?'nav-tab-active':'text-slate-400 hover:text-slate-600'}">Projects</button>
                                     <button onclick="setMapLoadMode('category')" class="px-2 py-0.5 text-[10px] font-bold rounded ${mapLoadMode==='category'?'nav-tab-active':'text-slate-400 hover:text-slate-600'}">Categories</button>
                                 </div>
+                                <button onclick="openPieFullscreen()" class="ml-auto px-1.5 py-0.5 text-xs font-bold rounded text-slate-400 hover:text-amber-500" title="Show pie fullscreen">⛶</button>
                             </div>
                             <svg width="160" height="160" viewBox="0 0 160 160">${pieSvg}</svg>
                         </div>
-                        <div class="text-[10px] space-y-1.5 max-h-40 overflow-y-auto pr-1 pt-6">
-                            ${pieSlices.map(sl=>`<div class="flex items-center gap-1.5"><div class="w-2 h-2 rounded-sm shrink-0" style="background:${sl.color}"></div><span class="text-slate-600 font-medium truncate max-w-[110px]">${sl.label}</span><span class="text-slate-400 font-mono ml-auto pl-2">${Math.round(sl.value/pieTotal*100)}%</span></div>`).join('')}
+                        <div class="flex flex-col pt-6">
+                            <div class="text-[10px] space-y-1.5 max-h-32 overflow-y-auto pr-1">
+                                ${pieSlices.map(sl=>`<div class="flex items-center gap-1.5"><div class="w-2 h-2 rounded-sm shrink-0" style="background:${sl.color}"></div><span class="text-slate-600 font-medium truncate max-w-[110px]">${escHtml(sl.label)}</span><span class="text-slate-400 font-mono ml-auto pl-2">${Math.round(sl.value/pieTotal*100)}%</span></div>`).join('')}
+                            </div>
+                            <div class="flex items-center gap-2 mt-3">
+                                <button onclick="trackCurrentSplit(this)" class="px-2.5 py-1 text-[10px] font-bold rounded-md btn-accent" title="Save current split as a Time Track snapshot">＋ Track</button>
+                                <button onclick="setViewMode('timetrack')" class="text-[10px] font-bold text-amber-500 hover:text-amber-700">History →</button>
+                            </div>
                         </div>
                     </div>
                 </div>`;
@@ -1899,7 +1878,7 @@ Right column content
                         <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
                             <div class="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
                                 <h3 class="text-sm font-black text-slate-800 uppercase tracking-widest">Deadlines</h3>
-                                <button onclick="setViewMode('gantt')" class="text-[10px] font-bold text-amber-500 hover:text-amber-700 transition-colors">Gantt →</button>
+                                <button onclick="setViewMode('calendar')" class="text-[10px] font-bold text-amber-500 hover:text-amber-700 transition-colors">Calendar →</button>
                             </div>
                             <div class="px-5 py-2 max-h-96 overflow-y-auto">${deadlinesHtml}</div>
                         </div>
@@ -1912,7 +1891,7 @@ Right column content
             const svEl = document.getElementById('search-view');
             if (searchQuery.trim()) {
                 document.getElementById('filter-bar').classList.add('hidden');
-                ['board','list-view','todos-view','timeline-view','map-view','network-view','gantt-view','calendar-view','ideas-view'].forEach(id => { const el = document.getElementById(id); if (el) el.classList.add('hidden'); });
+                ['board','list-view','todos-view','timeline-view','map-view','network-view','timetrack-view','calendar-view','ideas-view'].forEach(id => { const el = document.getElementById(id); if (el) el.classList.add('hidden'); });
                 svEl.classList.remove('hidden');
                 renderSearch();
                 return;
@@ -1962,7 +1941,7 @@ Right column content
             else if (viewMode === 'timeline') renderTimeline();
             else if (viewMode === 'map')      renderBossMap();
             else if (viewMode === 'network')  renderNetwork();
-            else if (viewMode === 'gantt')    renderGantt();
+            else if (viewMode === 'timetrack') renderTimeTrack();
             else if (viewMode === 'calendar') renderCalendar();
             else if (viewMode === 'ideas')    renderIdeas();
         }
@@ -2037,168 +2016,268 @@ Right column content
             });
         }
 
-        // ── Gantt view ─────────────────────────────────────────────────────────
-        const MS_PER_DAY = 86400000;
-
-        function parseGanttData(proj) {
-            const startM = proj.content.match(/#start:(\\d{2}-\\d{2}-\\d{4})/);
-            const dueM   = proj.content.match(/#due:(\\d{2}-\\d{2}-\\d{4})/);
-            function pd(s) { const [d,m,y]=s.split('-'); return new Date(+y,+m-1,+d); }
-
-            const allDates = [...proj.content.matchAll(/\\*\\*(\\d{2}-\\d{2}-\\d{4})\\*\\*/g)].map(m=>pd(m[1]));
-            let start = startM ? pd(startM[1]) : (allDates.length ? new Date(Math.min(...allDates)) : null);
-            let end   = dueM   ? pd(dueM[1])   : (allDates.length ? new Date(Math.max(...allDates)) : null);
-            if (start && end && start.getTime() === end.getTime()) end = new Date(end.getTime() + 7*MS_PER_DAY);
-
-            const milestones = [];
-            proj.content.split('\\n').forEach((line, li) => {
-                const tM = line.match(/TODO:\\s*\\[([ x])\\]/i);
-                const dM = line.match(/\\*\\*(\\d{2}-\\d{2}-\\d{4})\\*\\*/);
-                if (tM && dM) milestones.push({
-                    date: pd(dM[1]),
-                    context: line.replace(/TODO:\\s*\\[[ x]\\]\\s*/gi,'').replace(/\\*\\*\\d{2}-\\d{2}-\\d{4}\\*\\*/g,'').replace(/[*#>`_]/g,'').trim(),
-                    done: tM[1].toLowerCase()==='x', lineIndex: li
-                });
-            });
-
-            const todos    = [...proj.content.matchAll(/TODO:\\s*\\[([ x])\\]/gi)];
-            const todoDone = todos.filter(m=>m[1].toLowerCase()==='x').length;
-            const allTags  = [...proj.content.matchAll(/#([a-zA-Z][\\w:]*)/g)].map(m=>m[1]);
-            const cats     = allTags.filter(t=>t.startsWith('cat:')).map(t=>t.slice(4));
-            const plainTags = allTags.filter(t=>!t.startsWith('cat:')&&!t.startsWith('proj:')&&!t.startsWith('load:')&&!t.startsWith('_'));
-            const rawDesc  = (proj.content.split(/\\n---\\n/)[0]||'').split('\\n').slice(1).join(' ')
-                .replace(/\\*\\*Short Desc:\\*\\*/gi,'').replace(/\\*\\*/g,'').trim();
-            return { ...proj, start, end, milestones, cats: cats.length?cats:['—'], plainTags, todoDone, todoTotal: todos.length, desc: rawDesc, status: statusStyle(plainTags) };
+        // ── Load split helpers (Map pie, fullscreen pie, Time Track) ───────────
+        const _seriesColors = { project: {}, category: {} };
+        function seriesColor(kind, key) {
+            if (kind === 'category' && key === '—') return '#94a3b8';
+            const m = _seriesColors[kind];
+            if (!m[key]) {
+                const n = Object.keys(m).length;
+                m[key] = n < COLORS.length ? COLORS[n] : `hsl(${Math.round(n * 137.508) % 360},60%,55%)`;
+            }
+            return m[key];
+        }
+        function primeSeriesColors() {
+            _seriesColors.project = {}; _seriesColors.category = {};
+            const add = it => {
+                seriesColor('project', it.project);
+                String(it.category || '—').split(',').forEach(c => seriesColor('category', c.trim() || '—'));
+            };
+            ttSnapshots.forEach(s => s.items.forEach(add));
+            activeLoadItems().forEach(add);
         }
 
-        function renderGantt() {
-            const ganttData = projects.map(parseGanttData);
-            const dated     = ganttData.filter(p => p.start && p.end);
-            const undated   = ganttData.filter(p => !p.start || !p.end);
-            const today     = new Date(); today.setHours(0,0,0,0);
+        // Active projects with their category and load — what the Map pie shows and what a snapshot stores
+        function activeLoadItems() {
+            return projects.map(p => {
+                const tags = [...p.content.matchAll(/#([a-zA-Z][\\w:]*)/g)].map(m => m[1]);
+                if (!tags.includes('active')) return null;
+                const cats = tags.filter(t => t.startsWith('cat:')).map(t => t.slice(4));
+                const lm = tags.find(t => t.startsWith('load:'));
+                const load = lm ? parseInt(lm.slice(5)) : 100;
+                return { project: p.title, category: cats.length ? [...new Set(cats)].join(', ') : '—', load: isNaN(load) ? 100 : load };
+            }).filter(Boolean);
+        }
 
-            let minDate = new Date(today.getTime() - 30*MS_PER_DAY);
-            let maxDate = new Date(today.getTime() + 90*MS_PER_DAY);
-            dated.forEach(p => {
-                if (p.start < minDate) minDate = new Date(p.start);
-                if (p.end   > maxDate) maxDate = new Date(p.end);
-            });
-            minDate = new Date(minDate.getFullYear(), minDate.getMonth()-1, 1);
-            maxDate = new Date(maxDate.getFullYear(), maxDate.getMonth()+2, 1);
-
-            const ZOOM_PPD = { week:28, month:10, quarter:4 };
-            const ppd      = ZOOM_PPD[ganttZoom] || 10;
-            const SVG_W    = Math.max(700, Math.ceil((maxDate - minDate) / MS_PER_DAY * ppd));
-            const ROW_H=42, BAR_H=18, AXIS_H=46, LABEL_W=210;
-            function xp(d) { return (d - minDate) / MS_PER_DAY * ppd; }
-
-            const palette = ['#f7b705','#10b981','#e11d48','#3b82f6','#8b5cf6','#ec4899','#14b8a6','#f97316'];
-            const catColors = {}; let gci = 0;
-            ganttData.forEach(p => p.cats.forEach(cat => { if (cat!=='—'&&!catColors[cat]) catColors[cat]=palette[gci++%palette.length]; }));
-            catColors['—'] = '#94a3b8';
-
-            const rows = [];
-            const catMap = {};
-            dated.forEach(p => { const cat=p.cats[0]||'—'; if(!catMap[cat])catMap[cat]=[]; catMap[cat].push(p); });
-            Object.keys(catMap).sort((a,b)=>a==='—'?1:b==='—'?-1:a.localeCompare(b)).forEach(cat => {
-                rows.push({ type:'group', cat, color: catColors[cat]||'#94a3b8' });
-                catMap[cat].forEach(p => rows.push({ type:'project', p, color: catColors[p.cats[0]||'—']||'#94a3b8' }));
-            });
-            if (undated.length) {
-                rows.push({ type:'group', cat:'Undated', color:'#e2e8f0' });
-                undated.forEach(p => rows.push({ type:'project', p, undated:true }));
+        function slicesFromItems(items, mode) {
+            if (mode === 'category') {
+                const acc = {};
+                items.forEach(it => String(it.category || '—').split(',').map(c => c.trim() || '—').forEach(c => { acc[c] = (acc[c] || 0) + it.load; }));
+                return Object.entries(acc).map(([c, v]) => ({ key: c, label: c === '—' ? 'Uncategorized' : c, value: v, color: seriesColor('category', c) }));
             }
+            return items.map(it => ({ key: it.project, label: it.project, value: it.load, color: seriesColor('project', it.project) }));
+        }
 
-            const svgH = AXIS_H + rows.length * ROW_H + 8;
-
-            const months = [];
-            let cur = new Date(minDate.getFullYear(), minDate.getMonth(), 1);
-            while (cur < maxDate) { months.push(new Date(cur)); cur = new Date(cur.getFullYear(), cur.getMonth()+1, 1); }
-
-            let axisSvg = '';
-            months.forEach((m, i) => {
-                const x1 = xp(m).toFixed(1);
-                const nextM = months[i+1] || maxDate;
-                const mx = ((xp(m)+xp(nextM))/2).toFixed(1);
-                axisSvg += `<rect x="${x1}" y="0" width="${(xp(nextM)-xp(m)).toFixed(1)}" height="${AXIS_H}" fill="${i%2===0?'#f8fafc':'#f1f5f9'}"/>`;
-                axisSvg += `<line x1="${x1}" y1="0" x2="${x1}" y2="${svgH}" stroke="#e2e8f0" stroke-width="0.5"/>`;
-                axisSvg += `<text x="${mx}" y="28" text-anchor="middle" font-size="11" font-weight="700" fill="#64748b" font-family="Inter,sans-serif">${m.toLocaleDateString('en-GB',{month:'short',year:'numeric'})}</text>`;
+        function drawPie(slices, cx, cy, r, opts = {}) {
+            const total = slices.reduce((s,sl) => s+sl.value, 0) || 1;
+            let angle = -Math.PI/2, svg = '';
+            slices.forEach(sl => {
+                if (sl.value <= 0) return;
+                const sweep = sl.value/total*2*Math.PI;
+                const pct = Math.round(sl.value/total*100);
+                const tip = `<title>${escHtml(sl.label)}: ${pct}%</title>`;
+                if (sweep >= 2*Math.PI - 1e-6) {
+                    svg += `<circle cx="${cx}" cy="${cy}" r="${r}" fill="${sl.color}">${tip}</circle>`;
+                } else {
+                    const x1=(cx+r*Math.cos(angle)).toFixed(2), y1=(cy+r*Math.sin(angle)).toFixed(2);
+                    const x2=(cx+r*Math.cos(angle+sweep)).toFixed(2), y2=(cy+r*Math.sin(angle+sweep)).toFixed(2);
+                    const large = sweep > Math.PI ? 1 : 0;
+                    svg += `<path d="M${cx},${cy} L${x1},${y1} A${r},${r} 0 ${large},1 ${x2},${y2} Z" fill="${sl.color}" style="stroke:var(--bg-surface)" stroke-width="${opts.strokeWidth || 1.5}">${tip}</path>`;
+                }
+                if (opts.labels && pct >= 4) {
+                    const mid = angle + sweep/2, lr = sweep >= 2*Math.PI - 1e-6 ? 0 : r*0.65;
+                    svg += `<text x="${(cx+lr*Math.cos(mid)).toFixed(1)}" y="${(cy+lr*Math.sin(mid)).toFixed(1)}" text-anchor="middle" dominant-baseline="central" font-size="${opts.fontSize || 14}" font-weight="800" fill="#fff" stroke="rgba(0,0,0,0.35)" stroke-width="3" paint-order="stroke" style="pointer-events:none">${pct}%</text>`;
+                }
+                angle += sweep;
             });
-            const todayX = xp(today);
-            axisSvg += `<line x1="${todayX.toFixed(1)}" y1="0" x2="${todayX.toFixed(1)}" y2="${svgH}" stroke="#f7b705" stroke-width="2" stroke-dasharray="4,3" opacity="0.85"/>`;
-            axisSvg += `<text x="${todayX.toFixed(1)}" y="${AXIS_H-6}" text-anchor="middle" font-size="9" font-weight="900" fill="#f7b705" font-family="Inter,sans-serif">TODAY</text>`;
+            return svg;
+        }
 
-            let depSvg = '';
-            dated.forEach(p => {
-                [...p.content.matchAll(/#proj:([\\w-]+)/g)].forEach(m => {
-                    const tgt = ganttData.find(gp=>gp.id===m[1]);
-                    if (!tgt||!tgt.start||!p.end) return;
-                    const fr = rows.findIndex(r=>r.type==='project'&&r.p&&r.p.id===p.id);
-                    const to = rows.findIndex(r=>r.type==='project'&&r.p&&r.p.id===tgt.id);
-                    if (fr<0||to<0) return;
-                    const x1=xp(p.end).toFixed(1), x2=xp(tgt.start).toFixed(1);
-                    const y1=(AXIS_H+fr*ROW_H+ROW_H/2).toFixed(1), y2=(AXIS_H+to*ROW_H+ROW_H/2).toFixed(1);
-                    const cx1=(parseFloat(x1)+40).toFixed(1), cx2=(parseFloat(x2)-40).toFixed(1);
-                    depSvg += `<path d="M ${x1} ${y1} C ${cx1} ${y1} ${cx2} ${y2} ${x2} ${y2}" stroke="#cbd5e1" stroke-width="1.5" fill="none" stroke-dasharray="4,3" marker-end="url(#gantt-arr)"/>`;
-                });
-            });
+        function tsToDate(ts) {
+            const [d, t] = ts.split(' '); const [y, m, dd] = d.split('-'); const [hh, mi] = (t || '0:0').split(':');
+            return new Date(+y, +m-1, +dd, +hh, +mi);
+        }
+        function fmtTs(ts, withTime = true) {
+            const d = tsToDate(ts);
+            const s = d.toLocaleDateString('en-GB', { day:'numeric', month:'short', year:'numeric' });
+            return withTime ? s + ' ' + ts.slice(11) : s;
+        }
 
-            let barSvg = '';
-            rows.forEach((row, ri) => {
-                const y = AXIS_H + ri * ROW_H;
-                barSvg += `<rect x="0" y="${y}" width="${SVG_W}" height="${ROW_H}" fill="${ri%2===0?'rgba(248,250,252,0.5)':'transparent'}"/>`;
-                if (row.type==='group') { barSvg += `<line x1="0" y1="${y+ROW_H-0.5}" x2="${SVG_W}" y2="${y+ROW_H-0.5}" stroke="#e2e8f0" stroke-width="1"/>`; return; }
-                if (row.undated) return;
-                const p=row.p, x1=xp(p.start), x2=xp(p.end), bw=Math.max(x2-x1,6), by=y+(ROW_H-BAR_H)/2;
-                const bc = p.status.label==='Done'?'#10b981':p.status.label==='Active'?(row.color||'#f7b705'):p.status.label==='Hold'?'#94a3b8':p.status.label==='Backlog'?'#8b5cf6':(row.color||'#94a3b8');
-                const pct = p.todoTotal>0 ? p.todoDone/p.todoTotal : (p.status.label==='Done'?1:0);
-                const isHold = p.status.label==='Hold';
-                barSvg += `<rect x="${x1.toFixed(1)}" y="${by.toFixed(1)}" width="${bw.toFixed(1)}" height="${BAR_H}" rx="4" fill="${bc}" opacity="${isHold?'0.15':'0.12'}"/>`;
-                if (pct>0) barSvg += `<rect x="${x1.toFixed(1)}" y="${by.toFixed(1)}" width="${(bw*pct).toFixed(1)}" height="${BAR_H}" rx="4" fill="${bc}" opacity="${isHold?'0.35':'0.6'}"/>`;
-                barSvg += `<rect x="${x1.toFixed(1)}" y="${by.toFixed(1)}" width="${bw.toFixed(1)}" height="${BAR_H}" rx="4" fill="none" stroke="${bc}" stroke-width="1.5" opacity="0.65"${isHold?' stroke-dasharray="5,3"':''}/>`;
-                if (bw>50&&p.todoTotal>0) barSvg += `<text x="${(x1+bw/2).toFixed(1)}" y="${(by+BAR_H/2+3.5).toFixed(1)}" text-anchor="middle" font-size="9" font-weight="700" fill="${bc}" font-family="Inter,sans-serif">${Math.round(pct*100)}%</text>`;
-                p.milestones.forEach(ms => {
-                    const mx=xp(ms.date); if (mx<0||mx>SVG_W) return;
-                    const mcy=y+ROW_H/2, mc=ms.done?'#10b981':'#f7b705';
-                    barSvg += `<rect x="${(mx-5).toFixed(1)}" y="${(mcy-5).toFixed(1)}" width="10" height="10" transform="rotate(45,${mx.toFixed(1)},${mcy.toFixed(1)})" fill="${mc}" stroke="white" stroke-width="1.5" style="cursor:pointer" onclick="toggleTodo('${p.id}',${ms.lineIndex})"><title>${ms.context||'Milestone'}</title></rect>`;
-                });
-                barSvg += `<rect x="${x1.toFixed(1)}" y="${by.toFixed(1)}" width="${bw.toFixed(1)}" height="${BAR_H}" rx="4" fill="transparent" style="cursor:pointer" onclick="openPresentation('${p.id}')"/>`;
-            });
+        // ── Time Track data ───────────────────────────────────────────────────
+        async function loadTimeTrack() {
+            try { ttSnapshots = await (await fetch('/api/timetrack')).json(); }
+            catch (e) { ttSnapshots = []; }
+            primeSeriesColors();
+        }
 
-            const labelHtml = rows.map(row => {
-                if (row.type==='group') return `<div class="gantt-group-label" style="height:${ROW_H}px"><div style="width:8px;height:8px;border-radius:2px;background:${row.color};margin-right:8px;flex-shrink:0"></div><span style="font-size:10px;font-weight:900;letter-spacing:0.08em;text-transform:uppercase;color:#475569">${row.cat==='—'?'Uncategorized':row.cat}</span></div>`;
-                const p=row.p, pct=p.todoTotal>0?Math.round(p.todoDone/p.todoTotal*100):-1;
-                const dot = p.status.label ? `<span style="width:7px;height:7px;border-radius:50%;background:${p.status.color};flex-shrink:0;display:inline-block"></span>` : '';
-                if (row.undated) return `<div class="gantt-row-label" style="height:${ROW_H}px;opacity:0.5" onclick="openModal('${p.id}')">${dot}<span style="font-size:12px;font-weight:600;color:#334155;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1;min-width:0">${p.title}</span><span style="font-size:9px;color:#94a3b8;flex-shrink:0">no dates</span></div>`;
-                return `<div class="gantt-row-label" style="height:${ROW_H}px" onclick="openPresentation('${p.id}')">${dot}<span style="font-size:12px;font-weight:600;color:#334155;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1;min-width:0">${p.title}</span>${pct>=0?`<span style="font-size:9px;color:#94a3b8;flex-shrink:0;font-family:monospace">${pct}%</span>`:''}</div>`;
-            }).join('');
+        async function trackCurrentSplit(btn) {
+            const items = activeLoadItems();
+            if (!items.length) { alert('No #active projects to track.'); return; }
+            const r = await fetch('/api/timetrack', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ items }) });
+            if (!r.ok) { alert('Saving snapshot failed.'); return; }
+            const j = await r.json();
+            await loadTimeTrack();
+            if (btn) {
+                const orig = btn.innerHTML;
+                btn.innerHTML = '✓ Saved ' + j.ts.slice(11);
+                btn.disabled = true;
+                setTimeout(() => { btn.innerHTML = orig; btn.disabled = false; }, 2000);
+            }
+        }
 
-            const zoomBtns = ['week','month','quarter'].map(z =>
-                `<button onclick="ganttZoom='${z}';localStorage.setItem('ganttZoom','${z}');renderGantt()" style="padding:4px 14px;border-radius:6px;font-size:11px;font-weight:700;border:none;cursor:pointer;transition:all 0.15s;${ganttZoom===z?'background:#f7b705;color:#1c1917':'background:#f1f5f9;color:#64748b'}">${z.charAt(0).toUpperCase()+z.slice(1)}</button>`
-            ).join('');
+        async function deleteSnapshot(ts) {
+            if (!confirm('Delete time track snapshot from ' + fmtTs(ts) + '?')) return;
+            await fetch('/api/timetrack/' + encodeURIComponent(ts), { method:'DELETE' });
+            await loadTimeTrack();
+            if (pieFs && pieFs.ts === ts) closePieFullscreen();
+            renderAll();
+        }
 
-            document.getElementById('gantt-view').innerHTML = `
-                <div style="height:100%;display:flex;flex-direction:column">
-                    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-shrink:0;flex-wrap:wrap;gap:8px">
-                        <div>
-                            <h2 style="font-size:1.5rem;font-weight:900;color:var(--text-primary)">Gantt Chart</h2>
-                            <p style="font-size:11px;color:#94a3b8;margin-top:2px">${dated.length} project${dated.length!==1?'s':''} plotted &middot; tags: <code style="background:var(--bg-muted);padding:1px 5px;border-radius:3px">#start:dd-mm-yyyy</code> &middot; <code style="background:var(--bg-muted);padding:1px 5px;border-radius:3px">#due:dd-mm-yyyy</code></p>
-                        </div>
-                        <div style="display:flex;gap:4px;background:var(--bg-muted);padding:4px;border-radius:8px;border:1px solid var(--border)">${zoomBtns}</div>
+        // ── Fullscreen pie ────────────────────────────────────────────────────
+        function openPieFullscreen(ts) {
+            pieFs = { mode: ts ? ttMode : mapLoadMode, ts: ts || null };
+            const el = document.getElementById('pie-fs');
+            el.classList.remove('hidden');
+            renderPieFs();
+            try { if (!document.fullscreenElement && el.requestFullscreen) el.requestFullscreen().catch(() => {}); } catch (e) {}
+        }
+        function closePieFullscreen() {
+            pieFs = null;
+            document.getElementById('pie-fs').classList.add('hidden');
+            try { if (document.fullscreenElement) document.exitFullscreen().catch(() => {}); } catch (e) {}
+        }
+        document.addEventListener('fullscreenchange', () => {
+            if (!document.fullscreenElement && pieFs) closePieFullscreen();
+        });
+
+        function segBtns(opts, cur, fn) {
+            return `<div class="flex bg-slate-100 p-0.5 rounded-md gap-0.5">${opts.map(([v, l]) =>
+                `<button onclick="${fn}('${v}')" class="px-3 py-1 text-xs font-bold rounded ${cur===v?'nav-tab-active':'text-slate-400 hover:text-slate-600'}">${l}</button>`).join('')}</div>`;
+        }
+        function setPieFsMode(m) { pieFs.mode = m; renderPieFs(); }
+
+        function renderPieFs() {
+            if (!pieFs) return;
+            const snap = pieFs.ts ? ttSnapshots.find(s => s.ts === pieFs.ts) : null;
+            const items = snap ? snap.items : activeLoadItems();
+            const slices = slicesFromItems(items, pieFs.mode).sort((a,b) => b.value - a.value);
+            const total = slices.reduce((s,sl) => s+sl.value, 0) || 1;
+            const sub = snap ? 'Snapshot · ' + fmtTs(snap.ts)
+                             : new Date().toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'});
+            const legend = slices.map(sl => `<div class="flex items-center gap-3">
+                    <div class="w-4 h-4 rounded shrink-0" style="background:${sl.color}"></div>
+                    <span class="text-slate-700 font-semibold truncate" style="max-width:22rem">${escHtml(sl.label)}</span>
+                    <span class="text-slate-400 font-mono ml-auto pl-6">${Math.round(sl.value/total*100)}%</span>
+                </div>`).join('');
+            document.getElementById('pie-fs').innerHTML = `
+                <div class="flex items-center justify-between gap-4 px-10 pt-8">
+                    <div>
+                        <h2 class="text-3xl font-black text-slate-900">Work split</h2>
+                        <p class="text-slate-400 mt-1">${sub}</p>
                     </div>
-                    <div style="flex:1;overflow:auto;border:1px solid var(--border);border-radius:16px;background:var(--bg-surface);display:flex;min-height:0">
-                        <div style="width:${LABEL_W}px;flex-shrink:0;border-right:2px solid var(--border);position:sticky;left:0;background:var(--bg-surface);z-index:3">
-                            <div style="height:${AXIS_H}px;display:flex;align-items:flex-end;padding:0 12px 8px;border-bottom:1px solid var(--border);font-size:10px;font-weight:900;letter-spacing:0.1em;text-transform:uppercase;color:#94a3b8">Projects</div>
-                            ${labelHtml}
-                        </div>
-                        <div style="flex:1;overflow-x:auto">
-                            <svg width="${SVG_W}" height="${svgH}" xmlns="http://www.w3.org/2000/svg" style="display:block">
-                                <defs><marker id="gantt-arr" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto"><path d="M0,0 L0,6 L6,3 Z" fill="#cbd5e1"/></marker></defs>
-                                ${axisSvg}${depSvg}${barSvg}
-                            </svg>
-                        </div>
+                    <div class="flex items-center gap-3">
+                        ${segBtns([['project','Projects'],['category','Categories']], pieFs.mode, 'setPieFsMode')}
+                        ${snap ? `<button onclick="deleteSnapshot('${snap.ts}')" class="px-3 py-1.5 text-xs font-bold rounded-lg border border-slate-200 text-slate-400 hover:text-rose-600">Delete snapshot</button>` : ''}
+                        <button onclick="closePieFullscreen()" class="p-2 rounded-lg border border-slate-200 text-slate-400 hover:text-amber-500" title="Close (Esc)">
+                            <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                        </button>
+                    </div>
+                </div>
+                <div class="flex-1 flex items-center justify-center gap-16 px-10 pb-10 min-h-0 flex-wrap">
+                    ${slices.length ? `<svg viewBox="0 0 400 400" style="width:min(72vh,55vw);height:auto">${drawPie(slices, 200, 200, 190, { labels: true, fontSize: 16, strokeWidth: 2.5 })}</svg>
+                    <div class="text-lg space-y-3 overflow-y-auto pr-2" style="max-height:72vh">${legend}</div>`
+                    : '<p class="text-slate-400">No data.</p>'}
+                </div>`;
+        }
+
+        // ── Time Track view ───────────────────────────────────────────────────
+        function setTtMode(m)  { ttMode = m;  renderTimeTrack(); }
+        function setTtChart(c) { ttChart = c; renderTimeTrack(); }
+        function setTtRange(r) { ttRange = r; renderTimeTrack(); }
+
+        function renderTimeTrack() {
+            const el = document.getElementById('timetrack-view');
+            const days = { '3m': 92, '12m': 366 }[ttRange];
+            const cutoff = days ? Date.now() - days * 86400000 : 0;
+            const snaps = ttSnapshots.filter(s => tsToDate(s.ts).getTime() >= cutoff);
+
+            const header = `<div class="flex items-start justify-between gap-6 mb-8 flex-wrap">
+                    <div>
+                        <h2 class="text-3xl font-black text-slate-900">Time Track</h2>
+                        <p class="text-slate-400 mt-1 text-sm">${snaps.length} snapshot${snaps.length===1?'':'s'} · work split over time (only #active projects, by #load)</p>
+                    </div>
+                    <div class="flex items-center gap-3 flex-wrap">
+                        ${segBtns([['project','Projects'],['category','Categories']], ttMode, 'setTtMode')}
+                        ${segBtns([['bars','Bars'],['pies','Pies']], ttChart, 'setTtChart')}
+                        ${segBtns([['all','All'],['12m','12 m'],['3m','3 m']], ttRange, 'setTtRange')}
                     </div>
                 </div>`;
+
+            if (!snaps.length) {
+                el.innerHTML = `<div class="max-w-6xl mx-auto">${header}
+                    <div class="bg-white rounded-2xl border border-slate-200 p-12 text-center text-slate-400">
+                        No snapshots yet — open <button onclick="setViewMode('map')" class="font-bold text-amber-500 hover:text-amber-700">Map</button> and press <strong>＋ Track</strong> to save the current split.
+                    </div></div>`;
+                return;
+            }
+
+            const series = snaps.map(s => {
+                const slices = slicesFromItems(s.items, ttMode);
+                const tot = slices.reduce((a,sl) => a+sl.value, 0) || 1;
+                const share = {}; slices.forEach(sl => { share[sl.key] = (share[sl.key] || 0) + sl.value / tot; });
+                return { ts: s.ts, share };
+            });
+            const avg = {};
+            series.forEach(s => Object.entries(s.share).forEach(([k, v]) => { avg[k] = (avg[k] || 0) + v / series.length; }));
+            const keys = Object.keys(avg).sort((a,b) => avg[b] - avg[a]);
+            const kind = ttMode === 'category' ? 'category' : 'project';
+            const lbl  = k => kind === 'category' && k === '—' ? 'Uncategorized' : k;
+
+            let chart;
+            if (ttChart === 'bars') {
+                const H = 300, top = 10, left = 40, minW = 1000;
+                const step = Math.max(56, Math.min(160, (minW - left - 20) / series.length));
+                const colW = Math.min(80, step * 0.62);
+                const W = Math.max(minW, left + series.length * step + 20);
+                const dayCount = {}; series.forEach(s => { const d = s.ts.slice(0, 10); dayCount[d] = (dayCount[d] || 0) + 1; });
+                let svg = '';
+                [0, 25, 50, 75, 100].forEach(p => {
+                    const y = top + H - H * p / 100;
+                    svg += `<line x1="${left}" x2="${W}" y1="${y}" y2="${y}" style="stroke:var(--border)" stroke-width="1"/>`;
+                    svg += `<text x="${left - 8}" y="${y}" text-anchor="end" dominant-baseline="central" font-size="10" style="fill:var(--text-muted)">${p}%</text>`;
+                });
+                series.forEach((s, i) => {
+                    const x = left + (step - colW) / 2 + i * step;
+                    let y = top + H, rects = '';
+                    keys.forEach(k => {
+                        const v = s.share[k] || 0; if (!v) return;
+                        const h = v * H; y -= h;
+                        rects += `<rect x="${x}" y="${y.toFixed(2)}" width="${colW}" height="${h.toFixed(2)}" fill="${seriesColor(kind, k)}" style="stroke:var(--bg-surface)" stroke-width="1"><title>${escHtml(lbl(k))}: ${Math.round(v*100)}%</title></rect>`;
+                    });
+                    svg += `<g style="cursor:pointer" onclick="openPieFullscreen('${s.ts}')">${rects}</g>`;
+                    const d = tsToDate(s.ts);
+                    svg += `<text x="${x + colW/2}" y="${top + H + 16}" text-anchor="middle" font-size="10" font-weight="700" style="fill:var(--text-secondary)">${d.toLocaleDateString('en-GB',{day:'numeric',month:'short'})}</text>`;
+                    svg += `<text x="${x + colW/2}" y="${top + H + 29}" text-anchor="middle" font-size="9" style="fill:var(--text-muted)">${dayCount[s.ts.slice(0, 10)] > 1 ? s.ts.slice(11) : d.getFullYear()}</text>`;
+                });
+                chart = `<div class="overflow-x-auto"><svg viewBox="0 0 ${W} ${top + H + 40}" style="width:100%;min-width:${W === minW ? 0 : W}px;height:auto">${svg}</svg></div>
+                    <p class="text-[11px] text-slate-400 mt-2">Click a column to open it as a fullscreen pie.</p>`;
+            } else {
+                chart = `<div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">${snaps.map(s => `
+                    <div class="rounded-xl border border-slate-200 p-3 flex flex-col items-center">
+                        <svg width="130" height="130" viewBox="0 0 140 140" style="cursor:pointer" onclick="openPieFullscreen('${s.ts}')">${drawPie(slicesFromItems(s.items, ttMode), 70, 70, 64)}</svg>
+                        <div class="text-xs font-bold text-slate-700 mt-2">${fmtTs(s.ts, false)}</div>
+                        <div class="flex items-center gap-3 text-[10px] text-slate-400 mt-1">
+                            <span class="font-mono">${s.ts.slice(11)}</span>
+                            <button onclick="openPieFullscreen('${s.ts}')" class="hover:text-amber-500" title="Fullscreen">⛶</button>
+                            <button onclick="deleteSnapshot('${s.ts}')" class="hover:text-rose-600" title="Delete snapshot">🗑</button>
+                        </div>
+                    </div>`).join('')}</div>`;
+            }
+
+            const summary = keys.map(k => `<div class="flex items-center gap-3 text-sm">
+                    <div class="w-2.5 h-2.5 rounded-sm shrink-0" style="background:${seriesColor(kind, k)}"></div>
+                    <span class="text-slate-700 font-medium truncate w-56">${escHtml(lbl(k))}</span>
+                    <div class="flex-1 h-2 rounded-full bg-slate-100 overflow-hidden"><div class="h-full rounded-full" style="width:${(avg[k]*100).toFixed(1)}%;background:${seriesColor(kind, k)}"></div></div>
+                    <span class="text-slate-400 font-mono text-xs w-10 text-right">${Math.round(avg[k]*100)}%</span>
+                </div>`).join('');
+
+            el.innerHTML = `<div class="max-w-6xl mx-auto">${header}
+                <div class="bg-white rounded-2xl border border-slate-200 p-6 mb-6">${chart}</div>
+                <div class="bg-white rounded-2xl border border-slate-200 p-6">
+                    <h3 class="text-xs font-black uppercase tracking-widest text-slate-400 mb-4">Average split · ${snaps.length === 1 ? fmtTs(snaps[0].ts, false) : fmtTs(snaps[0].ts, false) + ' – ' + fmtTs(snaps[snaps.length-1].ts, false)}</h3>
+                    <div class="space-y-2">${summary}</div>
+                </div>
+            </div>`;
         }
 
         // ── Calendar view ─────────────────────────────────────────────────────
@@ -2391,6 +2470,7 @@ Right column content
                 if (e.key === 'Escape') { closeDeckPicker(); return; }
                 return;
             }
+            if (pieFs) { if (e.key === 'Escape') closePieFullscreen(); return; }
             if (slideshowOpen) {
                 if (e.key === 'ArrowRight' || e.key === 'ArrowDown') { e.preventDefault(); nextSlide(); return; }
                 if (e.key === 'ArrowLeft'  || e.key === 'ArrowUp')   { e.preventDefault(); prevSlide(); return; }
@@ -2521,9 +2601,32 @@ def restore_backup():
         return jsonify({"status": "error", "msg": "not found"}), 404
     with open(path, "r", encoding="utf-8") as f:
         content = f.read()
-    raw_sections = re.split(r'(?=## Project:)', content)
+    proj_text, tt_text = _split_content(content)
+    raw_sections = re.split(r'(?=## Project:)', proj_text)
     projects_data = [s.strip() for s in raw_sections if s.strip()]
-    save_projects_to_file(projects_data)
+    save_projects_to_file(projects_data, tt_text)
+    return jsonify({"status": "success"})
+
+@app.route("/api/timetrack", methods=["GET"])
+def get_timetrack():
+    snaps = {}
+    for r in read_timetrack():
+        snaps.setdefault(r["ts"], []).append({k: r[k] for k in ("project", "category", "load")})
+    return jsonify([{"ts": ts, "items": items} for ts, items in sorted(snaps.items())])
+
+@app.route("/api/timetrack", methods=["POST"])
+def add_timetrack():
+    items = (request.json or {}).get("items")
+    if not isinstance(items, list) or not items:
+        return jsonify({"status": "error", "msg": "no items"}), 400
+    ts = append_timetrack(items)
+    return jsonify({"status": "success", "ts": ts})
+
+@app.route("/api/timetrack/<path:ts>", methods=["DELETE"])
+def remove_timetrack(ts):
+    if not re.match(r'^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$', ts):
+        return jsonify({"status": "error", "msg": "invalid timestamp"}), 400
+    delete_timetrack(ts)
     return jsonify({"status": "success"})
 
 if __name__ == "__main__":

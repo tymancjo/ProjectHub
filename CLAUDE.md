@@ -25,13 +25,15 @@ App runs at `http://127.0.0.1:5000`. No build step. `HUB_URL` env var overrides 
 Three entry points, one data module:
 
 - **`app.py`** — Flask server + entire frontend HTML/CSS/JS (`HTML_TEMPLATE` starts at line 9)
-- **`db.py`** — data layer: `read_projects()`, `save_projects_to_file()`, `parse_meta()`, `toggle_todo()`, `set_status()`
+- **`db.py`** — data layer: `read_projects()`, `save_projects_to_file()`, `parse_meta()`, `toggle_todo()`, `set_status()`, Time Track (`read_timetrack()`, `append_timetrack()`, `delete_timetrack()`)
 - **`launcher.py`** — starts Flask subprocess, then offers TUI or browser via a Rich menu; shuts server on exit
 - **`tui.py`** — Textual TUI; calls Flask API over httpx; tabs: Projects, TODOs, Ideas
 
 ### Data flow
 
 `db.py` reads/writes `db/projects.md`. `app.py` imports from `db.py`. `tui.py` imports `parse_meta` and `set_status` from `db.py` but persists changes through the Flask API (`/api/save-order`).
+
+`## @TimeTrack` section (end of file) is split off by `_split_content()`; `save_projects_to_file()` keeps the existing block unless one is passed, so all project saves preserve it.
 
 Backup: every save auto-copies to `db/backup/YYYYMMDD_HHMMSS_projects.md`; keeps last 20.
 
@@ -46,7 +48,10 @@ Backup: every save auto-copies to `db/backup/YYYYMMDD_HHMMSS_projects.md`; keeps
 | `/api/update-tags` | POST | `{projectId, tagKey, tagValue}` — upserts a `#key:value` tag |
 | `/api/backups` | GET | Lists available backup files |
 | `/api/backup/<filename>` | GET | Returns raw backup content |
-| `/api/restore` | POST | `{filename}` — restores a backup |
+| `/api/restore` | POST | `{filename}` — restores a backup (projects + Time Track) |
+| `/api/timetrack` | GET | Snapshots `[{ts, items:[{project, category, load}]}]` |
+| `/api/timetrack` | POST | `{items:[…]}` — appends a snapshot (server sets timestamp; same minute overwrites) |
+| `/api/timetrack/<ts>` | DELETE | Removes one snapshot |
 | `/raw` | GET | Returns raw `db/projects.md` as plain text |
 
 ### Frontend Views (all in `HTML_TEMPLATE`)
@@ -60,8 +65,13 @@ Views toggled with `setViewMode(mode)` — no routing, no page reloads.
 | `list` | Compact overview table |
 | `todos` | Aggregated TODO list across all projects |
 | `timeline` | Chronological date markers (list or grid mode) |
-| `map` | Portfolio view with task progress bars |
+| `map` | Portfolio view with task progress bars; load pie (⛶ fullscreen, ＋ Track saves snapshot) |
 | `network` | Project relationship graph |
+| `timetrack` | Work split history — 100% stacked bars or pies per snapshot, average split |
+| `calendar` | Monthly grid of date markers |
+| `ideas` | All `**idea**` lines |
+
+Also: search view (header input), presentation/slideshow modal, quick capture (`q`), help modal (`?`), backups modal.
 
 Frontend libs (all CDN): Tailwind CSS, Marked.js, Mermaid.js, Sortable.js, CodeMirror 5 (editor with Vim keymap + Dracula theme).
 
@@ -90,7 +100,12 @@ TODO: [ ] Open task
 TODO: [x] Done task
 
 - **idea** something to explore
+
+## @TimeTrack
+- 2026-10-14 10:32 | Project Name | categoryname | 100
 ```
+
+`## @TimeTrack` must be last; one line per active project per snapshot (`timestamp | title | category | load`). Rows sharing a timestamp form one snapshot.
 
 ### Special Tags
 
