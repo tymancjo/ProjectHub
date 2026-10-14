@@ -143,6 +143,9 @@ HTML_TEMPLATE = """
         #quick-capture-panel.open { transform: translateY(0); }
 
 
+        /* Active-only toggle */
+        #active-toggle.active-only-on { background: #f7b705; border-color: #f7b705; color: #1c1917 !important; }
+
         /* Calendar */
         .cal-day { min-height: 86px; border-right: 1px solid #f1f5f9; border-bottom: 1px solid #f1f5f9; padding: 6px; }
         .cal-day.today { background: #fef9e7; }
@@ -158,26 +161,26 @@ HTML_TEMPLATE = """
                 <div class="p-2 rounded-xl shadow-lg" style="background:#f7b705">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" /></svg>
                 </div>
-                <h1 class="text-xl font-bold text-slate-900 tracking-tight">ProjectBoard</h1>
+                <h1 class="hidden 2xl:block text-xl font-bold text-slate-900 tracking-tight">ProjectBoard</h1>
             </div>
             <nav class="flex bg-slate-100 p-1 rounded-lg gap-0.5">
-                <button id="view-home"     onclick="setViewMode('home')"     class="px-4 py-1.5 rounded-md text-sm font-bold transition-all nav-tab-active">Home</button>
-                <button id="view-board"    onclick="setViewMode('board')"    class="px-4 py-1.5 rounded-md text-sm font-bold transition-all text-slate-500 hover:text-slate-800">Board</button>
-                <button id="view-list"     onclick="setViewMode('list')"     class="px-4 py-1.5 rounded-md text-sm font-bold transition-all text-slate-500 hover:text-slate-800">Overview</button>
-                <button id="view-todos"    onclick="setViewMode('todos')"    class="px-4 py-1.5 rounded-md text-sm font-bold transition-all text-slate-500 hover:text-slate-800">TODOs</button>
-                <button id="view-timeline" onclick="setViewMode('timeline')" class="px-4 py-1.5 rounded-md text-sm font-bold transition-all text-slate-500 hover:text-slate-800">Timeline</button>
-                <button id="view-map"      onclick="setViewMode('map')"      class="px-4 py-1.5 rounded-md text-sm font-bold transition-all text-slate-500 hover:text-slate-800">Map</button>
-                <button id="view-network"  onclick="setViewMode('network')"  class="px-4 py-1.5 rounded-md text-sm font-bold transition-all text-slate-500 hover:text-slate-800">Network</button>
-                <button id="view-timetrack" onclick="setViewMode('timetrack')" class="px-4 py-1.5 rounded-md text-sm font-bold transition-all text-slate-500 hover:text-slate-800">Tracking</button>
-                <button id="view-calendar" onclick="setViewMode('calendar')" class="px-4 py-1.5 rounded-md text-sm font-bold transition-all text-slate-500 hover:text-slate-800">Calendar</button>
-                <button id="view-ideas"    onclick="setViewMode('ideas')"    class="px-4 py-1.5 rounded-md text-sm font-bold transition-all text-slate-500 hover:text-slate-800">Ideas</button>
+                <button id="view-home"     onclick="setViewMode('home')"     class="px-3 py-1.5 rounded-md text-sm font-bold transition-all whitespace-nowrap nav-tab-active">Home</button>
+                <button id="view-board"    onclick="setViewMode('board')"    class="px-3 py-1.5 rounded-md text-sm font-bold transition-all whitespace-nowrap text-slate-500 hover:text-slate-800">Board</button>
+                <button id="view-list"     onclick="setViewMode('list')"     class="px-3 py-1.5 rounded-md text-sm font-bold transition-all whitespace-nowrap text-slate-500 hover:text-slate-800">Overview</button>
+                <button id="view-todos"    onclick="setViewMode('todos')"    class="px-3 py-1.5 rounded-md text-sm font-bold transition-all whitespace-nowrap text-slate-500 hover:text-slate-800">TODOs</button>
+                <button id="view-timeline" onclick="setViewMode('timeline')" class="px-3 py-1.5 rounded-md text-sm font-bold transition-all whitespace-nowrap text-slate-500 hover:text-slate-800">Timeline</button>
+                <button id="view-map"      onclick="setViewMode('map')"      class="px-3 py-1.5 rounded-md text-sm font-bold transition-all whitespace-nowrap text-slate-500 hover:text-slate-800">Map</button>
+                <button id="view-network"  onclick="setViewMode('network')"  class="px-3 py-1.5 rounded-md text-sm font-bold transition-all whitespace-nowrap text-slate-500 hover:text-slate-800">Network</button>
+                <button id="view-timetrack" onclick="setViewMode('timetrack')" class="px-3 py-1.5 rounded-md text-sm font-bold transition-all whitespace-nowrap text-slate-500 hover:text-slate-800">Tracking</button>
+                <button id="view-calendar" onclick="setViewMode('calendar')" class="px-3 py-1.5 rounded-md text-sm font-bold transition-all whitespace-nowrap text-slate-500 hover:text-slate-800">Calendar</button>
+                <button id="view-ideas"    onclick="setViewMode('ideas')"    class="px-3 py-1.5 rounded-md text-sm font-bold transition-all whitespace-nowrap text-slate-500 hover:text-slate-800">Ideas</button>
             </nav>
         </div>
         <div class="flex items-center gap-3">
             <div class="relative">
                 <input id="search-input" type="text" placeholder="Search projects…"
                     oninput="onSearchInput(event)" onkeydown="onSearchKey(event)"
-                    class="pl-8 pr-3 py-1.5 text-sm border border-slate-200 rounded-lg bg-slate-50 focus:outline-none focus:border-amber-400 focus:bg-white w-48 transition-all" autocomplete="off">
+                    class="pl-8 pr-3 py-1.5 text-sm border border-slate-200 rounded-lg bg-slate-50 focus:outline-none focus:border-amber-400 focus:bg-white w-40 transition-all" autocomplete="off">
                 <svg class="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
             </div>
             <button onclick="openBackups()" class="p-2 rounded-lg border border-slate-200 hover:border-amber-400 transition-all text-slate-400 hover:text-amber-500" title="View &amp; restore backups">
@@ -186,13 +189,17 @@ HTML_TEMPLATE = """
             <button onclick="openHelp()" class="p-2 rounded-lg border border-slate-200 hover:border-amber-400 transition-all text-slate-400 hover:text-amber-500" title="Help &amp; syntax reference">
                 <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
             </button>
+            <button id="active-toggle" onclick="toggleActiveOnly()" class="flex items-center gap-1.5 px-2.5 py-2 rounded-lg border border-slate-200 hover:border-amber-400 transition-all text-slate-400 hover:text-amber-500 text-xs font-bold whitespace-nowrap">
+                <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"/></svg>
+                Active
+            </button>
             <button id="dark-toggle" onclick="toggleDarkMode()" class="p-2 rounded-lg border border-slate-200 hover:border-amber-400 transition-all text-slate-400 hover:text-amber-500" title="Toggle dark mode">
                 <svg id="dark-icon-moon" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/></svg>
                 <svg id="dark-icon-sun"  class="h-4 w-4 hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
             </button>
-            <button onclick="addNewProject()" class="flex items-center gap-2 px-4 py-2 btn-accent rounded-lg font-bold shadow-md transition-all text-sm">
+            <button onclick="addNewProject()" title="New Project" class="flex items-center gap-2 px-4 py-2 whitespace-nowrap btn-accent rounded-lg font-bold shadow-md transition-all text-sm">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd" /></svg>
-                New Project
+                <span class="hidden 2xl:inline">New Project</span>
             </button>
         </div>
     </header>
@@ -411,6 +418,10 @@ HTML_TEMPLATE = """
                             <span class="text-slate-600">Quick capture note</span>
                         </div>
                         <div class="flex items-center gap-3 p-2 rounded-lg bg-slate-50">
+                            <kbd class="px-2 py-1 rounded bg-white border border-slate-200 text-xs font-mono font-bold shadow-sm">A</kbd>
+                            <span class="text-slate-600">Toggle "Active only" filter</span>
+                        </div>
+                        <div class="flex items-center gap-3 p-2 rounded-lg bg-slate-50">
                             <kbd class="px-2 py-1 rounded bg-white border border-slate-200 text-xs font-mono font-bold shadow-sm">?</kbd>
                             <span class="text-slate-600">Open this help panel</span>
                         </div>
@@ -615,6 +626,7 @@ Right column content
                         <li class="flex gap-2"><span class="text-amber-500">▸</span> Press 📅 Date in the editor to insert today's date in the correct format.</li>
                         <li class="flex gap-2"><span class="text-amber-500">▸</span> Toggle <strong>VIM</strong> in the editor for Vim keybindings (with Dracula theme).</li>
                         <li class="flex gap-2"><span class="text-amber-500">▸</span> Set <code class="text-rose-600">DB_PATH</code> env var (copy <code>.env.example → .env</code>) to use any Markdown file as your database.</li>
+                        <li class="flex gap-2"><span class="text-amber-500">▸</span> <strong>Active</strong> button in the header (or <kbd>a</kbd>) shows only <code class="text-rose-600">#active</code> projects in every view; remembered per browser. Search still finds everything.</li>
                         <li class="flex gap-2"><span class="text-amber-500">▸</span> Projects with <code class="text-rose-600">#_hidden</code> are invisible in views but still editable via direct URL or filter.</li>
                         <li class="flex gap-2"><span class="text-amber-500">▸</span> Any line containing <code class="text-rose-600">**idea**</code> (case-insensitive) appears in the Ideas view and TUI Ideas tab.</li>
                         <li class="flex gap-2"><span class="text-amber-500">▸</span> Mermaid diagrams work in project notes and inside slides — use a fenced <code class="text-rose-600">```mermaid</code> block.</li>
@@ -716,6 +728,17 @@ Right column content
         }
         function toggleDarkMode() { darkMode = !darkMode; localStorage.setItem('darkMode', darkMode); applyDarkMode(); }
 
+        // "Active only" — app-wide display filter; never touches `projects`, so saves keep everything
+        let activeOnly = localStorage.getItem('activeOnly') === 'true';
+        function isShown(p) { return !activeOnly || [...p.content.matchAll(/#(\\w+)/g)].some(m => m[1] === 'active'); }
+        function shownProjects() { return activeOnly ? projects.filter(isShown) : projects; }
+        function applyActiveOnly() {
+            const btn = document.getElementById('active-toggle');
+            btn.classList.toggle('active-only-on', activeOnly);
+            btn.title = activeOnly ? 'Showing only #active projects — click to show all' : 'Show only #active projects';
+        }
+        function toggleActiveOnly() { activeOnly = !activeOnly; localStorage.setItem('activeOnly', activeOnly); applyActiveOnly(); renderAll(); }
+
         async function loadProjects() {
             const r = await fetch('/api/projects');
             projects = await r.json();
@@ -734,8 +757,8 @@ Right column content
                 const btn = document.getElementById('view-' + v);
                 const el  = document.getElementById(v === 'board' ? 'board' : v + '-view');
                 if (btn) btn.className = (mode === v)
-                    ? 'px-4 py-1.5 rounded-md text-sm font-bold transition-all nav-tab-active'
-                    : 'px-4 py-1.5 rounded-md text-sm font-bold transition-all text-slate-500 hover:text-slate-800';
+                    ? 'px-3 py-1.5 rounded-md text-sm font-bold transition-all whitespace-nowrap nav-tab-active'
+                    : 'px-3 py-1.5 rounded-md text-sm font-bold transition-all whitespace-nowrap text-slate-500 hover:text-slate-800';
                 if (el) el.classList.toggle('hidden', mode !== v);
             });
             renderAll();
@@ -1121,7 +1144,7 @@ Right column content
                     if (m) items.push({ lineIndex: i, done: m[1].toLowerCase() === 'x', task: m[2].trim() });
                 });
                 return { proj, pi, items };
-            }).filter(g => g.items.length > 0);
+            }).filter(g => g.items.length > 0 && isShown(g.proj));
         }
 
         function renderTodos() {
@@ -1189,7 +1212,7 @@ Right column content
                     }
                 });
                 return { proj, pi, items };
-            }).filter(g => g.items.length > 0);
+            }).filter(g => g.items.length > 0 && isShown(g.proj));
         }
 
         function renderIdeas() {
@@ -1246,6 +1269,7 @@ Right column content
         function parseDates() {
             const events = [];
             projects.forEach((proj, pi) => {
+                if (!isShown(proj)) return;
                 const color = COLORS[pi % COLORS.length];
                 proj.content.split('\\n').forEach((line, lineIndex) => {
                     [...line.matchAll(/\\*\\*(\\d{2}-\\d{2}-\\d{4})\\*\\*/g)].forEach(m => {
@@ -1347,7 +1371,7 @@ Right column content
                 <div class="flex items-center justify-between mb-6">
                     <div>
                         <h2 class="text-2xl font-black text-slate-900">Timeline</h2>
-                        <p class="text-sm text-slate-400 mt-0.5">${events.length} event${events.length!==1?'s':''} across ${projects.length} project${projects.length!==1?'s':''}</p>
+                        <p class="text-sm text-slate-400 mt-0.5">${events.length} event${events.length!==1?'s':''} across ${shownProjects().length} project${shownProjects().length!==1?'s':''}</p>
                     </div>
                     <div class="flex items-center gap-2">
                         <div class="flex bg-slate-100 p-1 rounded-lg gap-0.5">
@@ -1422,7 +1446,7 @@ Right column content
             const toggleHtml = `<div class="flex items-center justify-between mb-6">
                 <div>
                     <h2 class="text-2xl font-black text-slate-900">Timeline</h2>
-                    <p class="text-sm text-slate-400 mt-0.5">${events.length} event${events.length!==1?'s':''} across ${projects.length} project${projects.length!==1?'s':''}</p>
+                    <p class="text-sm text-slate-400 mt-0.5">${events.length} event${events.length!==1?'s':''} across ${shownProjects().length} project${shownProjects().length!==1?'s':''}</p>
                 </div>
                 <div class="flex items-center gap-2">
                     <div class="flex bg-slate-100 p-1 rounded-lg gap-0.5">
@@ -1514,7 +1538,7 @@ Right column content
         function renderBossMap() {
             const catColors = {};
 
-            const enriched = projects.map(proj => {
+            const enriched = shownProjects().map(proj => {
                 const allTags  = [...proj.content.matchAll(/#([a-zA-Z][\\w:]*)/g)].map(m => m[1]);
                 const cats     = allTags.filter(t => t.startsWith('cat:')).map(t => t.slice(4));
                 const plainTags = allTags.filter(t => !t.startsWith('cat:') && !t.startsWith('proj:') && !t.startsWith('load:') && !t.startsWith('_'));
@@ -1549,7 +1573,7 @@ Right column content
                         <h2 class="text-3xl font-black text-slate-900">Project Map</h2>
                         <p class="text-slate-400 mt-1 text-sm">${today}</p>
                         <div class="flex gap-8 mt-4">
-                            <div class="text-right"><div class="text-2xl font-black text-slate-900">${projects.length}</div><div class="text-[10px] font-bold uppercase tracking-widest text-slate-400 mt-0.5">Projects</div></div>
+                            <div class="text-right"><div class="text-2xl font-black text-slate-900">${enriched.length}</div><div class="text-[10px] font-bold uppercase tracking-widest text-slate-400 mt-0.5">Projects</div></div>
                             <div class="text-right"><div class="text-2xl font-black text-amber-500">${totalPending}</div><div class="text-[10px] font-bold uppercase tracking-widest text-slate-400 mt-0.5">Open tasks</div></div>
                             <div class="text-right"><div class="text-2xl font-black text-emerald-500">${totalDone}</div><div class="text-[10px] font-bold uppercase tracking-widest text-slate-400 mt-0.5">Completed</div></div>
                         </div>
@@ -1621,6 +1645,7 @@ Right column content
         // ── Network view ──────────────────────────────────────────────────────
         function renderNetwork() {
             const W = 1000, H = 660;
+            const projects = shownProjects();
             const palette = ['#f7b705','#10b981','#e11d48','#3b82f6','#8b5cf6','#ec4899','#14b8a6','#f97316'];
             const catColors = {}; let ci = 0;
             projects.forEach(p => {
@@ -1809,7 +1834,7 @@ Right column content
             }
 
             // Deadlines from #due: tags
-            const deadlines = projects.map(p => {
+            const deadlines = shownProjects().map(p => {
                 const dueM = p.content.match(/#due:(\\d{2}-\\d{2}-\\d{4})/);
                 if (!dueM) return null;
                 const [dd,mm,yyyy] = dueM[1].split('-');
@@ -1929,6 +1954,7 @@ Right column content
             });
 
             const filtered = projects.filter(p => {
+                if (!isShown(p)) return false;
                 const pTags = [...p.content.matchAll(/#(\\w+)/g)].map(m => m[1]);
                 if (activeFilterTags.size > 0) return Array.from(activeFilterTags).every(t => pTags.includes(t));
                 return !pTags.some(t => t.startsWith('_'));
@@ -2482,6 +2508,7 @@ Right column content
             const presOpen   = !document.getElementById('presentation-modal').classList.contains('hidden');
             const inInput = ['INPUT','TEXTAREA'].includes(tag) || editorOpen || presOpen;
             if (e.key === 'i' && !inInput && !quickCaptureOpen && !helpOpen) { e.preventDefault(); setViewMode('ideas'); }
+            if (e.key === 'a' && !inInput && !quickCaptureOpen && !helpOpen) { e.preventDefault(); toggleActiveOnly(); }
             if (e.key === 'q' && !inInput && !quickCaptureOpen && !helpOpen) { e.preventDefault(); openQuickCapture(); }
             if ((e.key === '?' || e.key === '/') && !inInput && !quickCaptureOpen && !helpOpen) { e.preventDefault(); openHelp(); }
             if (e.key === 'Escape' && quickCaptureOpen) closeQuickCapture();
@@ -2490,6 +2517,7 @@ Right column content
         });
 
         applyDarkMode();
+        applyActiveOnly();
         window.onload = loadProjects;
     </script>
 </body>

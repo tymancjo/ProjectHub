@@ -73,6 +73,8 @@ Views toggled with `setViewMode(mode)` — no routing, no page reloads.
 
 Also: search view (header input), presentation/slideshow modal, quick capture (`q`), help modal (`?`), backups modal.
 
+"Active only" filter (header button / `a`, persisted in `localStorage.activeOnly`): renderers read `shownProjects()` / `isShown()`; the global `projects` array is never filtered, because saves write the whole array. Search ignores the filter.
+
 Frontend libs (all CDN): Tailwind CSS, Marked.js, Mermaid.js, Sortable.js, CodeMirror 5 (editor with Vim keymap + Dracula theme).
 
 Dark mode: toggled via `html.dark` class; CSS custom properties defined in `:root` and `html.dark`.
