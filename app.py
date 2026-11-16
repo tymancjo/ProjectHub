@@ -7,6 +7,23 @@ from db import (read_projects, save_projects_to_file, DB_FILE, DB_DIR, _split_co
 
 app = Flask(__name__)
 
+# Markdown styles shared by the app and the standalone project page
+MD_CSS = """
+        .markdown-content h1 { font-size: 2em; font-weight: 800; margin-bottom: 0.8em; color: var(--text-primary); border-bottom: 1px solid var(--border); padding-bottom: 0.4em; }
+        .markdown-content h2 { font-size: 1.5em; font-weight: 700; margin-top: 1.2em; margin-bottom: 0.6em; color: var(--text-primary); border-bottom: 1px solid var(--border-subtle); padding-bottom: 0.2em; }
+        .markdown-content h3 { font-size: 1.2em; font-weight: 700; margin-top: 1em; margin-bottom: 0.4em; color: var(--text-secondary); display: block; }
+        .markdown-content p { margin-bottom: 1em; font-size: 1em; line-height: 1.6; color: var(--text-secondary); }
+        .markdown-content ul { list-style-type: disc !important; padding-left: 1.5em !important; margin-bottom: 1em !important; display: block !important; }
+        .markdown-content ol { list-style-type: decimal !important; padding-left: 1.5em !important; margin-bottom: 1em !important; display: block !important; }
+        .markdown-content li { font-size: 1em; color: var(--text-secondary); margin-bottom: 0.4em; display: list-item !important; list-style: inherit !important; }
+        .markdown-content code { background-color: var(--bg-muted); padding: 0.2em 0.4em; border-radius: 4px; color: #be185d; font-family: monospace; font-size: 0.9em; }
+        .markdown-content pre { background-color: #1e293b; color: #f1f5f9; padding: 1rem; border-radius: 8px; overflow-x: auto; margin-bottom: 1em; font-size: 0.8em; }
+        .markdown-content table { border-collapse: collapse; width: 100%; margin: 0.75rem 0; }
+        .markdown-content th, .markdown-content td { border: 1px solid var(--border); padding: 0.4rem 0.75rem; text-align: left; font-size: 0.9em; }
+        .markdown-content th { background: var(--bg-muted); font-weight: 600; color: var(--text-primary); }
+        .markdown-content tr:nth-child(even) td { background: var(--bg-muted); }
+"""
+
 HTML_TEMPLATE = """
 <!DOCTYPE html>
 <html lang="en">
@@ -61,20 +78,8 @@ HTML_TEMPLATE = """
         html.dark .bg-slate-900\\/80 { background-color: rgba(2,6,23,0.90) !important; }
         .project-column { min-width: 380px; max-width: 380px; height: calc(100vh - 200px); }
 
-        .markdown-content h1 { font-size: 2em; font-weight: 800; margin-bottom: 0.8em; color: var(--text-primary); border-bottom: 1px solid var(--border); padding-bottom: 0.4em; }
-        .markdown-content h2 { font-size: 1.5em; font-weight: 700; margin-top: 1.2em; margin-bottom: 0.6em; color: var(--text-primary); border-bottom: 1px solid var(--border-subtle); padding-bottom: 0.2em; }
-        .markdown-content h3 { font-size: 1.2em; font-weight: 700; margin-top: 1em; margin-bottom: 0.4em; color: var(--text-secondary); display: block; }
-        .markdown-content p { margin-bottom: 1em; font-size: 1em; line-height: 1.6; color: var(--text-secondary); }
-        .markdown-content ul { list-style-type: disc !important; padding-left: 1.5em !important; margin-bottom: 1em !important; display: block !important; }
-        .markdown-content ol { list-style-type: decimal !important; padding-left: 1.5em !important; margin-bottom: 1em !important; display: block !important; }
-        .markdown-content li { font-size: 1em; color: var(--text-secondary); margin-bottom: 0.4em; display: list-item !important; list-style: inherit !important; }
-        .markdown-content code { background-color: var(--bg-muted); padding: 0.2em 0.4em; border-radius: 4px; color: #be185d; font-family: monospace; font-size: 0.9em; }
-        .markdown-content pre { background-color: #1e293b; color: #f1f5f9; padding: 1rem; border-radius: 8px; overflow-x: auto; margin-bottom: 1em; font-size: 0.8em; }
+{{ md_css|safe }}
         #board .markdown-content { font-size: 0.875rem; }
-        .markdown-content table { border-collapse: collapse; width: 100%; margin: 0.75rem 0; }
-        .markdown-content th, .markdown-content td { border: 1px solid var(--border); padding: 0.4rem 0.75rem; text-align: left; font-size: 0.9em; }
-        .markdown-content th { background: var(--bg-muted); font-weight: 600; color: var(--text-primary); }
-        .markdown-content tr:nth-child(even) td { background: var(--bg-muted); }
 
         .sortable-ghost { opacity: 0.4; border: 2px dashed #f7b705; }
 
@@ -291,6 +296,9 @@ HTML_TEMPLATE = """
             <div class="flex items-center gap-1">
                 <button id="pres-slideshow-btn" class="hidden p-2 hover:bg-slate-100 rounded-full text-slate-400 hover:text-amber-500 transition-colors" title="Slideshow — slide by slide (⬅ ➡)">
                     <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 4v16M17 4v16M3 8h4m10 0h4M3 16h4m10 0h4M4 20h16a1 1 0 001-1V5a1 1 0 00-1-1H4a1 1 0 00-1 1v14a1 1 0 001 1z"/></svg>
+                </button>
+                <button id="pres-tab-btn" class="p-2 hover:bg-slate-100 rounded-full text-slate-400 hover:text-sky-500 transition-colors" title="Open in new tab — clean page for printing">
+                    <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
                 </button>
                 <button id="pres-split-btn" class="p-2 hover:bg-slate-100 rounded-full text-slate-400 hover:text-violet-500 transition-colors" title="Split view — edit &amp; preview side by side">
                     <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 3H4a1 1 0 00-1 1v16a1 1 0 001 1h5M9 3h11a1 1 0 011 1v16a1 1 0 01-1 1H9M9 3v18"/></svg>
@@ -623,6 +631,7 @@ Right column content
                     <h3 class="text-xs font-black uppercase tracking-widest text-slate-400 mb-3">💡 Tips</h3>
                     <ul class="space-y-1.5 text-xs text-slate-600">
                         <li class="flex gap-2"><span class="text-amber-500">▸</span> Click any Map card or Network node to open the full project view.</li>
+                        <li class="flex gap-2"><span class="text-amber-500">▸</span> ↗ in the project view (or <kbd>Cmd</kbd>/<kbd>Ctrl</kbd>+click a card) opens the project as a clean page in a new tab — ready to print.</li>
                         <li class="flex gap-2"><span class="text-amber-500">▸</span> Press 📅 Date in the editor to insert today's date in the correct format.</li>
                         <li class="flex gap-2"><span class="text-amber-500">▸</span> Toggle <strong>VIM</strong> in the editor for Vim keybindings (with Dracula theme).</li>
                         <li class="flex gap-2"><span class="text-amber-500">▸</span> Set <code class="text-rose-600">DB_PATH</code> env var (copy <code>.env.example → .env</code>) to use any Markdown file as your database.</li>
@@ -834,7 +843,10 @@ Right column content
             el.className = `text-[10px] font-mono font-black px-2 py-1 rounded ${cls[mode] || cls.normal}`;
         }
 
+        function openProjectTab(id) { window.open('/project/' + encodeURIComponent(id), '_blank'); }
+
         function openPresentation(id) {
+            if (window.event && (window.event.metaKey || window.event.ctrlKey)) { openProjectTab(id); return; }
             const proj = projects.find(p => p.id === id);
             const body = proj.content.split(/\\n---\\n/).slice(1).join('\\n---\\n').trim();
             document.getElementById('pres-title').innerText = proj.title;
@@ -842,6 +854,7 @@ Right column content
             presContent.innerHTML = marked.parse(body);
             _mermaidInit(); mermaid.run({ nodes: presContent.querySelectorAll('.mermaid') });
             document.getElementById('pres-edit-btn').onclick = () => { closePresentation(); openModal(id); };
+            document.getElementById('pres-tab-btn').onclick = () => openProjectTab(id);
             document.getElementById('pres-split-btn').onclick = () => { closePresentation(); openSplitEditor(id); };
             const ssBtn = document.getElementById('pres-slideshow-btn');
             const ssDecks = _parseDecks(body);
@@ -2524,8 +2537,107 @@ Right column content
 </html>
 """
 
+PROJECT_PAGE_TEMPLATE = r"""<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ title }} · ProjectBoard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/4.3.0/marked.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+        :root {
+            --bg-app: #f8fafc; --bg-surface: #ffffff; --bg-subtle: #f8fafc; --bg-muted: #f1f5f9;
+            --border: #e2e8f0; --border-subtle: #f1f5f9;
+            --text-primary: #1e293b; --text-secondary: #475569; --text-muted: #94a3b8; --text-faint: #cbd5e1;
+        }
+        body { font-family: 'Inter', sans-serif; background: var(--bg-app); color: var(--text-primary); }
+{{ md_css|safe }}
+        .page { max-width: 850px; width: 90%; margin: 0 auto; padding: 2.5rem 0 4rem; }
+        #content { font-size: 18px; line-height: 1.6; transition: font-size 0.2s ease; }
+        .toolbar { position: sticky; top: 0; z-index: 10; background: rgba(255,255,255,0.92); backdrop-filter: blur(8px); border-bottom: 1px solid var(--border); }
+        .tb-btn { height: 2rem; min-width: 2rem; padding: 0 0.6rem; border-radius: 0.5rem; font-size: 0.8rem; font-weight: 700; color: #64748b; display: inline-flex; align-items: center; justify-content: center; gap: 0.35rem; }
+        .tb-btn:hover { background: #f1f5f9; color: #d4991a; }
+        .tb-primary { background: #f7b705; color: #1c1917; }
+        .tb-primary:hover { background: #e5a800; color: #1c1917; }
+
+        @media print {
+            @page { margin: 16mm 14mm; }
+            .toolbar { display: none !important; }
+            body { background: #fff; }
+            .page { width: 100%; max-width: none; padding: 0; }
+            #content { font-size: 11pt !important; }
+            .markdown-content pre { background: #f8fafc !important; color: #1e293b !important; border: 1px solid #e2e8f0; white-space: pre-wrap; overflow: visible; }
+            .markdown-content pre, .markdown-content table, .markdown-content img, .mermaid, blockquote { break-inside: avoid; }
+            .markdown-content h1, .markdown-content h2, .markdown-content h3 { break-after: avoid; }
+            .markdown-content a[href^="http"]::after { content: " (" attr(href) ")"; font-size: 0.8em; color: #64748b; word-break: break-all; }
+            .markdown-content tr:nth-child(even) td, .markdown-content th { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        }
+    </style>
+</head>
+<body>
+    <div class="toolbar">
+        <div class="flex items-center justify-between gap-4 px-6 py-2 max-w-5xl mx-auto">
+            <a href="/" class="tb-btn" title="Open ProjectBoard">← ProjectBoard</a>
+            <div class="flex items-center gap-1">
+                <button class="tb-btn" onclick="setSize(-2)" title="Smaller text">A−</button>
+                <span id="size-label" class="text-xs font-mono text-slate-400 w-10 text-center">100%</span>
+                <button class="tb-btn" onclick="setSize(2)" title="Larger text">A+</button>
+                <button class="tb-btn tb-primary ml-3" onclick="window.print()" title="Print (Ctrl/Cmd+P)">🖨 Print</button>
+            </div>
+        </div>
+    </div>
+    <article class="page">
+        <header class="mb-8 pb-4" style="border-bottom: 2px solid var(--border)">
+            <h1 class="text-4xl font-extrabold tracking-tight" style="color: var(--text-primary)">{{ title }}</h1>
+            {% if short_desc %}<p class="mt-2 text-lg" style="color: var(--text-secondary)">{{ short_desc }}</p>{% endif %}
+            <p class="mt-2 text-xs" style="color: var(--text-muted)">As of {{ as_of }}</p>
+        </header>
+        <div id="content" class="markdown-content"></div>
+    </article>
+    <script>
+        const body = {{ body|tojson }};
+        const renderer = new marked.Renderer();
+        const origCode = renderer.code.bind(renderer);
+        renderer.code = function(code, lang) {
+            if (lang === 'mermaid') return `<div class="mermaid">${code}</div>`;
+            return origCode(code, lang);
+        };
+        marked.setOptions({ renderer });
+        const el = document.getElementById('content');
+        el.innerHTML = marked.parse(body);
+        mermaid.initialize({ startOnLoad: false, theme: 'default' });
+        mermaid.run({ nodes: el.querySelectorAll('.mermaid') });
+
+        let size = 18;
+        function setSize(d) {
+            size = Math.max(12, Math.min(40, size + d));
+            el.style.fontSize = size + 'px';
+            document.getElementById('size-label').innerText = Math.round(size / 18 * 100) + '%';
+        }
+    </script>
+</body>
+</html>
+"""
+
 @app.route("/")
-def index(): return render_template_string(HTML_TEMPLATE)
+def index(): return render_template_string(HTML_TEMPLATE, md_css=MD_CSS)
+
+@app.route("/project/<pid>")
+def project_page(pid):
+    proj = next((p for p in read_projects() if p["id"] == pid), None)
+    if not proj:
+        return "Project not found — it may have been renamed. <a href='/'>Back to ProjectBoard</a>", 404
+    parts = re.split(r'\n---\n', proj["content"], maxsplit=1)
+    body = parts[1].strip() if len(parts) > 1 else ""
+    sd = re.search(r'\*\*Short Desc:\*\*\s*(.*)', parts[0])
+    return render_template_string(
+        PROJECT_PAGE_TEMPLATE, md_css=MD_CSS, title=proj["title"],
+        short_desc=sd.group(1).strip() if sd else "", body=body,
+        as_of=datetime.now().strftime("%d %B %Y"),
+    )
 
 @app.route("/api/projects")
 def get_projects(): return jsonify(read_projects())

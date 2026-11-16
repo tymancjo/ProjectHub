@@ -52,6 +52,7 @@ Backup: every save auto-copies to `db/backup/YYYYMMDD_HHMMSS_projects.md`; keeps
 | `/api/timetrack` | GET | Snapshots `[{ts, items:[{project, category, load}]}]` |
 | `/api/timetrack` | POST | `{items:[…]}` — appends a snapshot (server sets timestamp; same minute overwrites) |
 | `/api/timetrack/<ts>` | DELETE | Removes one snapshot |
+| `/project/<id>` | GET | Standalone print-friendly page for one project (`PROJECT_PAGE_TEMPLATE`) |
 | `/raw` | GET | Returns raw `db/projects.md` as plain text |
 
 ### Frontend Views (all in `HTML_TEMPLATE`)
@@ -74,6 +75,8 @@ Views toggled with `setViewMode(mode)` — no routing, no page reloads.
 Also: search view (header input), presentation/slideshow modal, quick capture (`q`), help modal (`?`), backups modal.
 
 "Active only" filter (header button / `a`, persisted in `localStorage.activeOnly`): renderers read `shownProjects()` / `isShown()`; the global `projects` array is never filtered, because saves write the whole array. Search ignores the filter.
+
+Markdown styles live in `MD_CSS` and are injected into both `HTML_TEMPLATE` and `PROJECT_PAGE_TEMPLATE` via `{{ md_css|safe }}`. `PROJECT_PAGE_TEMPLATE` is a raw string, so JS backslashes are single there (unlike `HTML_TEMPLATE`).
 
 Frontend libs (all CDN): Tailwind CSS, Marked.js, Mermaid.js, Sortable.js, CodeMirror 5 (editor with Vim keymap + Dracula theme).
 
